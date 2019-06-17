@@ -15,8 +15,8 @@ Principal Investigator
 
 ## Table of contents
 
-1. [Pre-processing of raw data](https://github.com/igorspp/darkfunctions/blob/master/01-pre-processing.md)
-2. [Read-based analyses](https://github.com/igorspp/darkfunctions/blob/master/02-read-based.md)
-3. [Metagenome assembling](https://github.com/igorspp/darkfunctions/blob/master/03-assembling.md)
-4. [Binning of MAGs](https://github.com/igorspp/darkfunctions/blob/master/04-binning-MAGs.md)
-5. [Working with MAGs](https://github.com/igorspp/darkfunctions/blob/master/05-working-with-MAGs.md)
+1. [Pre-processing of raw data](https://github.com/igorspp/DARKFUNCTIONS/blob/master/01-pre-processing.md)
+2. [Read-based analyses](https://github.com/igorspp/DARKFUNCTIONS/blob/master/02-read-based.md)
+3. [Metagenome assembling](https://github.com/igorspp/DARKFUNCTIONS/blob/master/03-assembling.md)
+4. [Binning of MAGs](https://github.com/igorspp/DARKFUNCTIONS/blob/master/04-binning-MAGs.md)
+5. [Working with MAGs](https://github.com/igorspp/DARKFUNCTIONS/blob/master/05-working-with-MAGs.md)
