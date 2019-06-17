@@ -26,7 +26,7 @@ done
 # Summarise results
 for LEVEL in 1 2 3 4 5 6 7 8; do
   metaxa2_dc *level_"$LEVEL".txt \
-             -o metaxa_merged_level_"$LEVEL".txt
+             -o summary_level_"$LEVEL".txt
 done
 ```
 
@@ -51,16 +51,8 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
 done
 
 # Run KEGG-tools
-for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
-  KEGG-tools assign -i "$SAMPLE".txt \
-                    -p $SAMPLE \
-                    -k $KEGG
-
-  KEGG-tools expand -i "$SAMPLE"_KOtable.txt \
-                    -p $SAMPLE \
-                    -k $KEGG \
-                    -m yes
-done
+parallel -j 4 -a $WORKDIR/SAMPLES.txt --gnu "KEGG-tools assign -i {}.txt -p {} -k $KEGG;
+                                             KEGG-tools expand -i {}_KOtable.txt -p {} -k $KEGG"
 
 KEGG-tools summarise -s $WORKDIR/SAMPLES.txt \
                      -p summary
