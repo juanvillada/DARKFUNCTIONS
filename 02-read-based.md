@@ -51,8 +51,15 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
 done
 
 # Run KEGG-tools
-parallel -j 4 -a $WORKDIR/SAMPLES.txt --gnu "KEGG-tools assign -i {}.txt -p {} -k $KEGG;
-                                             KEGG-tools expand -i {}_KOtable.txt -p {} -k $KEGG"
+for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
+  KEGG-tools assign -i "$SAMPLE".txt \
+                    -p "$SAMPLE" \
+                    -k $KEGG
+
+  KEGG-tools expand -i "$SAMPLE"_KOtable.txt \
+                    -p "$SAMPLE" \
+                    -k $KEGG
+done
 
 KEGG-tools summarise -s $WORKDIR/SAMPLES.txt \
                      -p summary
