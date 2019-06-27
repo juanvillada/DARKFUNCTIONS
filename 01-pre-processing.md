@@ -93,7 +93,7 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
 done
 ```
 
-### Resample FASTQ files and convert to FASTA
+### Resample FASTQ files
 
 ```bash
 cd $WORKDIR/01_TRIMMED_DATA_SUB
