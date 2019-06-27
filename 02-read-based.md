@@ -36,10 +36,17 @@ done
 cd $WORKDIR/02_KEGG
 
 module load biokit/4.9.3
+module load biopython-env/2.7.13
+
+# Convert to FASTA
+for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
+  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R1_trimmed.fastq | awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R1", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
+  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R2_trimmed.fastq | awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R2", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
+done
 
 # Run DIAMOND
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
-  diamond blastx --query $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_trimmed.fasta \
+  diamond blastx --query "$SAMPLE"_trimmed.fasta \
                  --out "$SAMPLE".txt \
                  --db $KEGG/KEGG \
                  --outfmt 6 \
@@ -52,15 +59,12 @@ done
 
 # Run KEGG-tools
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
-  KEGG-tools assign -i "$SAMPLE".txt \
-                    -p "$SAMPLE" \
-                    -k $KEGG
-
-  KEGG-tools expand -i "$SAMPLE"_KOtable.txt \
-                    -p "$SAMPLE" \
-                    -k $KEGG
+  KEGG-tools-assign.py -i "$SAMPLE".txt \
+                       -p "$SAMPLE" \
+                       -a $KEGG \
+                       --summarise \
+                       --minpath
 done
 
-KEGG-tools summarise -s $WORKDIR/SAMPLES.txt \
-                     -p summary
+KEGG-tools-collect.py -s $WORKDIR/SAMPLES.txt
 ```
