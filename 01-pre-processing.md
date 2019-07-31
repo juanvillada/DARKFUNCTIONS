@@ -1,11 +1,19 @@
 # Pre-processing of raw data
 
-We will start with some basic quality checking of the sequencing data using FASTQC. Next we will remove the sequencing adaptors and perform some quality filtering using CUTADAPT, and run FASTQC again to check the quality of the trimmed data. This will be done for each sequencing run separately, which we will be merged afterwards. Finally, since there is a big discrepancy in the number of reads obtained for each sample, we will resample each dataset to the same number of reads (2,000,000) for the read-based analyses.
+We will start with some basic quality checking of the sequencing data using FASTQC. Next we will remove the sequencing adaptors and perform some quality filtering using CUTADAPT, and run FASTQC again to check the quality of the trimmed data. This will be done for each sequencing run separately by assigning the variable $RUN, which we will be merged afterwards. Finally, since there is a big discrepancy in the number of reads obtained for each sample, we will resample each dataset to the same number of reads (2,000,000) for the read-based analyses.
 
 ### Set working directory
 
 ```bash
 export WORKDIR=/wrk/stelmach/DONOTREMOVE/DARKFUNCTIONS
+```
+
+### Define sequencing run
+
+```bash
+RUN=1STRUN #OR
+RUN=2NDRUN #OR
+RUN=3RDRUN
 ```
 
 ### Create list of sample names
@@ -14,7 +22,7 @@ export WORKDIR=/wrk/stelmach/DONOTREMOVE/DARKFUNCTIONS
 cd $WORKDIR
 
 ls 01_RAW_DATA/$RUN/*.fastq.gz |
-egrep -o [mo][0-9]+ |
+egrep -o '[mo][0-9]+' |
 sort |
 uniq > SAMPLES_"$RUN".txt
 ```

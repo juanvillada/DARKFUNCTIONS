@@ -1,6 +1,6 @@
 # Read-based analyses
 
-First we will use METAXA to look for 16S rRNA gene fragments and obtain a taxonomic profile for each sample. Next we will run DIAMOND to map the reads against the KEGG database and obtain a functional profile for each sample. We will then use an in-house script (https://github.com/igorspp/KEGG-tools) to parse the DIAMOND results. It (i) assigns a KO identifier to each hit, (ii) runs MinPath to remove spurious pathways, and (iii) summarises the abundance of each pathway. We will work here with the dataset which has been resampled to an even number of reads.
+First we will use METAXA to look for 16S rRNA gene sequences and obtain a taxonomic profile for each sample. Next we will run DIAMOND to map the reads against the KEGG database and generate functional profiles. We will then use an in-house script (https://github.com/igorspp/KEGG-tools) to parse the DIAMOND results. It (i) assigns a KO identifier to each hit, (ii) runs MinPath to remove spurious pathways, and (iii) summarises the abundance of each pathway. We will work here with the dataset which has been resampled to 2,000,000 reads.
 
 ### Annotate reads with METAXA
 
@@ -36,12 +36,14 @@ done
 cd $WORKDIR/02_KEGG
 
 module load biokit/4.9.3
-module load biopython-env/2.7.13
 
-# Convert to FASTA
+# Convert reads to FASTA and rename headers
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
-  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R1_trimmed.fastq | awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R1", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
-  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R2_trimmed.fastq | awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R2", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
+  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R1_trimmed.fastq |
+  awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R1", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
+
+  seqtk seq -A $WORKDIR/01_TRIMMED_DATA_SUB/"$SAMPLE"_R2_trimmed.fastq |
+  awk -v SAMPLE=$SAMPLE -v OFS='-' '/^>/{print ">" SAMPLE, "R2", "READ", ++i; next}{print}' >> "$SAMPLE"_trimmed.fasta
 done
 
 # Run DIAMOND
@@ -58,9 +60,11 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
 done
 
 # Run KEGG-tools
+module load biopython-env/2.7.13
+
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
   KEGG-tools-assign.py -i "$SAMPLE".txt \
-                       -p "$SAMPLE" \
+                       -p $SAMPLE \
                        -a $KEGG \
                        --summarise \
                        --minpath
