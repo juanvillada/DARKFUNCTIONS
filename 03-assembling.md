@@ -56,6 +56,6 @@ module load biokit
 
 metaquast.py */final.contigs.fa \  
              -o ASSEMBLIES_QC \  
-             -t 4 \  
-             --no-plots
+             -t 16 \  
+             --fast
 ```

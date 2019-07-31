@@ -1,4 +1,4 @@
-# Read-based analyses 
+# Read-based analyses
 
 First we will use METAXA to look for 16S rRNA gene fragments and obtain a taxonomic profile for each sample. Next we will run DIAMOND to map the reads against the KEGG database and obtain a functional profile for each sample. We will then use an in-house script (https://github.com/igorspp/KEGG-tools) to parse the DIAMOND results. It (i) assigns a KO identifier to each hit, (ii) runs MinPath to remove spurious pathways, and (iii) summarises the abundance of each pathway. We will work here with the dataset which has been resampled to an even number of reads.
 
@@ -48,7 +48,7 @@ done
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
   diamond blastx --query "$SAMPLE"_trimmed.fasta \
                  --out "$SAMPLE".txt \
-                 --db $KEGG/KEGG \
+                 --db $KEGG/PROKARYOTES \
                  --outfmt 6 \
                  --evalue 0.00001 \
                  --id 60 \
