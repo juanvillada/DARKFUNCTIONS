@@ -1,4 +1,4 @@
-# Read-based analyses
+# Read-based analyses 
 
 First we will use METAXA to look for 16S rRNA gene sequences and obtain a taxonomic profile for each sample. Next we will run DIAMOND to map the reads against the KEGG database and generate functional profiles. We will then use an in-house script (https://github.com/igorspp/KEGG-tools) to parse the DIAMOND results. It (i) assigns a KO identifier to each hit, (ii) runs MinPath to remove spurious pathways, and (iii) summarises the abundance of each pathway. We will work here with the dataset which has been resampled to 2,000,000 reads.
 

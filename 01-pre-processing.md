@@ -8,23 +8,16 @@ We will start with some basic quality checking of the sequencing data using FAST
 export WORKDIR=/wrk/stelmach/DONOTREMOVE/DARKFUNCTIONS
 ```
 
-### Define sequencing run
-
-```bash
-RUN=1STRUN #OR
-RUN=2NDRUN #OR
-RUN=3RDRUN
-```
-
-### Create list of sample names
+### Define sequencing run and create list of sample names
 
 ```bash
 cd $WORKDIR
 
-ls 01_RAW_DATA/$RUN/*.fastq.gz |
-egrep -o '[mo][0-9]+' |
-sort |
-uniq > SAMPLES_"$RUN".txt
+RUN=1STRUN #OR
+RUN=2NDRUN #OR
+RUN=3RDRUN
+
+SAMPLES=$(ls 01_RAW_DATA/$RUN/*.fastq.gz | egrep -o '[mo][0-9]+' | sort | uniq)
 ```
 
 ### Check raw data with FASTQC
@@ -52,7 +45,7 @@ cd $WORKDIR/01_TRIMMED_DATA
 module load bioconda/3
 source activate cutadapt
 
-for SAMPLE in $(cat $WORKDIR/SAMPLES_"$RUN".txt); do
+for SAMPLE in $SAMPLES; do
   cutadapt $WORKDIR/01_RAW_DATA/$RUN/*"$SAMPLE"_*R1*.fastq.gz \
            $WORKDIR/01_RAW_DATA/$RUN/*"$SAMPLE"_*R2*.fastq.gz \
            -o $RUN/"$SAMPLE"_R1_trimmed.fastq \
@@ -82,17 +75,17 @@ multiqc $RUN/FASTQC \
         --interactive
 ```
 
+### Create list of sample names
+
+```bash
+cd $WORKDIR
+
+ls 01_TRIMMED_DATA/*/*.fastq | egrep -o '[mo][0-9]+' | sort | uniq > SAMPLES.txt
+```
+
 ### Pool data from all sequencing runs
 
 ```bash
-# Create list of sample names
-cd $WORKDIR/
-
-cat samples_1STRUN.txt samples_2NDRUN.txt samples_3RDRUN.txt |
-sort |
-uniq > SAMPLES.txt
-
-# Pool reads
 cd $WORKDIR/01_TRIMMED_DATA
 
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do

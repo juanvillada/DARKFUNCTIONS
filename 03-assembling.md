@@ -9,7 +9,7 @@ ASSEMBLY=ASSEMBLY_01
 R1=$(cat $WORKDIR/SAMPLES.txt | egrep -v [mo]122 | awk -v ORS="," '{print "../01_TRIMMED_DATA/" $0 "_R1_trimmed.fastq"}' | sed 's/,$/\n/')
 R2=$(cat $WORKDIR/SAMPLES.txt | egrep -v [mo]122 | awk -v ORS="," '{print "../01_TRIMMED_DATA/" $0 "_R2_trimmed.fastq"}' | sed 's/,$/\n/')
 
-# OR
+#OR
 
 ASSEMBLY=ASSEMBLY_02
 R1=$(cat $WORKDIR/SAMPLES.txt | egrep [mo]122 | awk -v ORS="," '{print "../01_TRIMMED_DATA/" $0 "_R1_trimmed.fastq"}' | sed 's/,$/\n/')
