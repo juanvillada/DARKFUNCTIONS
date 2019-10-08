@@ -39,7 +39,7 @@ anvi-gen-contigs-database -f CONTIGS_2500nt.fa \
 
 # Find single-copy genes with HMMER
 anvi-run-hmms -c CONTIGS.db \
-              -T 24
+              -T 16
 
 # Get sequences for gene calls
 anvi-get-sequences-for-gene-calls -c CONTIGS.db \
@@ -49,14 +49,14 @@ anvi-get-sequences-for-gene-calls -c CONTIGS.db \
 centrifuge -f gene_calls.fa \
            -S centrifuge_hits.tsv \
            -x $CENTRIFUGE_BASE/p+h+v \
-           -p 24
+           -p 16
 
 # Import CENTRIFUGE results
 anvi-import-taxonomy-for-genes -i centrifuge_report.tsv centrifuge_hits.tsv \
                                -c CONTIGS.db \
                                -p centrifuge
 
-# Map short reads with BOWTIE
+# Map reads with BOWTIE
 
 ## Index contigs
 bowtie2-build CONTIGS_2500nt.fa \
@@ -69,7 +69,7 @@ for SAMPLE in $SAMPLES; do
           -2 $WORKDIR/01_TRIMMED_DATA/"$SAMPLE"_R2_trimmed.fastq  \
           -S MAPPING/"$SAMPLE".sam \
           -x MAPPING/contigs \
-          --threads 24 \
+          --threads 8 \
           --no-unal
 
   # Create and index BAM file
@@ -105,12 +105,19 @@ anvi-display-contigs-stats CONTIGS.db \
 # Pre-cluster with CONCOCT
 anvi-cluster-with-concoct -c CONTIGS.db \
                           -p MERGED_PROFILES/PROFILE.db \
-                          -C CONCOCT_C100 \
+                          -C CONCOCT \
                           --num-clusters-requested 100
 
 # Summarize CONCOCT bins
 anvi-summarize -c CONTIGS.db \
                -p MERGED_PROFILES/PROFILE.db \
-               -C CONCOCT_C100 \
-               -o CONCOCT_C100_SUMMARY
+               -C CONCOCT \
+               -o CONCOCT_SUMMARY
+
+# Create individual contigs and profile databases
+anvi-split -p PROFILE.db \
+           -c CONTIGS.db \
+           -C CONCOCT \
+           -o CONCOCT_SPLIT \
+           --skip-variability-tables
 ```
