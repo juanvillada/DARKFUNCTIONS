@@ -2,10 +2,12 @@
 
 We will start with some basic quality checking of the sequencing data using FASTQC. Next we will remove the sequencing adaptors and perform some quality filtering using CUTADAPT, and run FASTQC again to check the quality of the trimmed data. This will be done for each sequencing run separately by assigning the variable $RUN, which we will be merged afterwards. Finally, since there is a big discrepancy in the number of reads obtained for each sample, we will resample each dataset to the same number of reads (2,000,000) for the read-based analyses.
 
-### Set working directory
+### Set working directories
 
 ```bash
 export WORKDIR=/wrk/stelmach/DONOTREMOVE/DARKFUNCTIONS
+export WORKDIR=/scratch/project_2000577
+export PROJAPPL=/projappl/project_2000577
 ```
 
 ### Define sequencing run and create list of sample names
