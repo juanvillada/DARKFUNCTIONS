@@ -21,8 +21,7 @@ Profiles from each sample are merged into one single file and CONCOCT is used to
 cd $WORKDIR/04_BINNING/BINNING_"$ASSEMBLY"
 
 module load biokit
-module load bioconda/3
-source activate anvio5
+conda activate anvio6
 
 # Rename contigs and select those >2,500 bp
 anvi-script-reformat-fasta $WORKDIR/03_ASSEMBLIES/ASSEMBLY_"$ASSEMBLY"/final.contigs.fa \
@@ -39,7 +38,7 @@ anvi-gen-contigs-database -f CONTIGS_2500nt.fa \
 
 # Find single-copy genes with HMMER
 anvi-run-hmms -c CONTIGS.db \
-              -T 16
+              -T 40
 
 # Get sequences for gene calls
 anvi-get-sequences-for-gene-calls -c CONTIGS.db \
@@ -97,10 +96,10 @@ anvi-merge PROFILES/*/PROFILE.db \
            --skip-hierarchical-clustering \
            --skip-concoct-binning
 
-# Get contigs stats
-anvi-display-contigs-stats CONTIGS.db \
-                           --output-file CONTIGS_stats.txt \
-                           --report-as-text
+# Get taxonomy for single copy genes
+anvi-run-scg-taxonomy -c CONTIGS.db \
+                      -P 10 \
+                      -T 4
 
 # Pre-cluster with CONCOCT
 anvi-cluster-with-concoct -c CONTIGS.db \
@@ -112,7 +111,8 @@ anvi-cluster-with-concoct -c CONTIGS.db \
 anvi-summarize -c CONTIGS.db \
                -p MERGED_PROFILES/PROFILE.db \
                -C CONCOCT \
-               -o CONCOCT_SUMMARY
+               -o CONCOCT_SUMMARY \
+               --quick-summary
 
 # Create individual contigs and profile databases
 anvi-split -p PROFILE.db \
