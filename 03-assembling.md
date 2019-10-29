@@ -1,5 +1,7 @@
 # Metagenome assembling
 
+## Co-assemblies
+
 Samples appear too different for a good co-assembly. We will then do two co-assemblies, one with the bog samples only and the other with the remaining samples. This is done by assigning the variables $ASSEMBLY, $R1 and $R2. We will use MEGAHIT as it is fast and has been shown to produce good assemblies (e.g. Quince et al. 2017, Sczyrba et al. 2017, van der Walt et al. 2017).
 
 ### Define assembly and create list of file names

@@ -1,5 +1,7 @@
 # Binning of MAGs
 
+## Co-assemblies
+
 ### Define assembly and create list of sample names
 
 ```bash
@@ -66,23 +68,23 @@ for SAMPLE in $SAMPLES; do
   # Run BOWTIE
   bowtie2 -1 $WORKDIR/01_TRIMMED_DATA/"$SAMPLE"_R1_trimmed.fastq \
           -2 $WORKDIR/01_TRIMMED_DATA/"$SAMPLE"_R2_trimmed.fastq  \
-          -S MAPPING/"$SAMPLE".sam \
+          -S MAPPING/$SAMPLE.sam \
           -x MAPPING/contigs \
           --threads 8 \
           --no-unal
 
   # Create and index BAM file
-  samtools view -F 4 -bS MAPPING/"$SAMPLE".sam > MAPPING/"$SAMPLE"-RAW.bam
-  samtools sort MAPPING/"$SAMPLE"-RAW.bam -o MAPPING/"$SAMPLE".bam
-  samtools index MAPPING/"$SAMPLE".bam
+  samtools view -F 4 -bS MAPPING/$SAMPLE.sam > MAPPING/$SAMPLE.RAW.bam
+  samtools sort MAPPING/$SAMPLE.RAW.bam -o MAPPING/$SAMPLE.bam
+  samtools index MAPPING/$SAMPLE.bam
 
   # Remove SAM and unsorted BAM files
-  rm -f MAPPING/"$SAMPLE".sam MAPPING/"$SAMPLE"-RAW.bam
+  rm -f MAPPING/$SAMPLE.sam MAPPING/$SAMPLE.RAW.bam
 done
 
 # Build profile databases
 for SAMPLE in $SAMPLES; do
-  anvi-profile -i MAPPING/"$SAMPLE".bam \
+  anvi-profile -i MAPPING/$SAMPLE.bam \
                -o PROFILES/$SAMPLE \
                -c CONTIGS.db \
                -T 24 \
