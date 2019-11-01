@@ -5,9 +5,7 @@ We will start with some basic quality checking of the sequencing data using FAST
 ### Set working directories
 
 ```bash
-export WORKDIR=/wrk/stelmach/DONOTREMOVE/DARKFUNCTIONS
 export WORKDIR=/scratch/project_2000577
-export PROJAPPL=/projappl/project_2000577
 ```
 
 ### Define sequencing run and create list of sample names
