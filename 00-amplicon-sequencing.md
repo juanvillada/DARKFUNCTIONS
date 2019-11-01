@@ -127,6 +127,6 @@ usearch -otutab filtered.fasta \
 
 usearch -otutab filtered.fasta \
         -zotus 05_OTUs/ASVs.good.fasta \
-        -otutabout 05_OTUs/_ASV_table.txt \
+        -otutabout 05_OTUs/ASV_table.txt \
         -threads 2
 done
