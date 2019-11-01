@@ -2,150 +2,131 @@
 
 ```bash
 # Quality check of raw reads
-module load bioconda/3
-source activate QC_env
+conda activate fastqc
 
-fastqc 01_RAW/*.fastq.gz \
-       -o 01_RAW/FASTQC \
+fastqc 01_RAW_DATA/*.fastq.gz \
+       -o 01_RAW_DATA/FASTQC \
        -t 4
 
-multiqc 01_RAW/FASTQC \
-        -o 01_RAW/MULTIQC \
+multiqc 01_RAW_DATA/FASTQC \
+        -o 01_RAW_DATA/MULTIQC \
         --interactive
 
 # Merge paired-end reads
 for SAMPLE in $(cat SAMPLES.txt); do
-  gunzip -c 01_RAW/"$SAMPLE"_*_R1_*.fastq.gz > "$SAMPLE"_R1.fastq
-  gunzip -c 01_RAW/"$SAMPLE"_*_R2_*.fastq.gz > "$SAMPLE"_R2.fastq
+  gunzip -c 01_RAW_DATA/"$SAMPLE"_*_R1_*.fastq.gz > "$SAMPLE"_R1.fastq
+  gunzip -c 01_RAW_DATA/"$SAMPLE"_*_R2_*.fastq.gz > "$SAMPLE"_R2.fastq
 
   usearch -fastq_mergepairs "$SAMPLE"_R1.fastq \
           -reverse "$SAMPLE"_R2.fastq \
-          -fastqout 02_MERGED/"$SAMPLE".fastq \
+          -fastqout 02_MERGED_DATA/$SAMPLE.fastq \
           -fastq_maxdiffs 10 \
-          -threads 2 &> 02_MERGED/"$SAMPLE".log
+          -threads 4 &> 02_MERGED_DATA/"$SAMPLE".log
 
   rm -f "$SAMPLE"_R1.fastq "$SAMPLE"_R2.fastq
 done
 
 # Trim primers
-module load bioconda/3
-source activate cutadapt
+conda activate cutadapt
 
 ## ARCHAEAL PRIMERS
 for SAMPLE in $(cat SAMPLES.txt | grep "A-"); do
-  cutadapt 02_MERGED/"$SAMPLE".fastq \
-           -o 03_TRIMMED/"$SAMPLE".fastq \
+  cutadapt 02_MERGED_DATA/$SAMPLE.fastq \
+           -o 03_TRIMMED_DATA/$SAMPLE.fastq \
            -a ^GNGCANCAGNCGNGAAN...CAGCNGCCGCGGTAA$ \
            -j 4 \
-           --discard-untrimmed > 03_TRIMMED/"$SAMPLE".log
+           --discard-untrimmed > 03_TRIMMED_DATA/$SAMPLE.log
 done
 
 ## BACTERIAL PRIMERS
 for SAMPLE in $(cat SAMPLES.txt | grep "B-"); do
-  cutadapt 02_MERGED/"$SAMPLE".fastq \
-           -o 03_TRIMMED/"$SAMPLE".fastq \
+  cutadapt 02_MERGED_DATA/$SAMPLE.fastq \
+           -o 03_TRIMMED_DATA/$SAMPLE.fastq \
            -a ^GTGCCAGCMGCCGCGGTAA...ATTAGANACCCNNGTAGTCC$ \
            -j 4 \
-           --discard-untrimmed > 03_TRIMMED/"$SAMPLE".log
+           --discard-untrimmed > 03_TRIMMED_DATA/$SAMPLE.log
 done
 
 # Quality check of trimmed reads
-module load bioconda/3
-source activate QC_env
+conda activate fastqc
 
-fastqc 03_TRIMMED/*.fastq \
-       -o 03_TRIMMED/FASTQC \
+fastqc 03_TRIMMED_DATA/*.fastq \
+       -o 03_TRIMMED_DATA/FASTQC \
        -t 4
 
-multiqc 03_TRIMMED/FASTQC \
-        -o 03_TRIMMED/MULTIQC \
+multiqc 03_TRIMMED_DATA/FASTQC \
+        -o 03_TRIMMED_DATA/MULTIQC \
         --interactive
 
 # Quality filtering
 for SAMPLE in $(cat SAMPLES.txt); do
-  usearch -fastq_filter 03_TRIMMED/"$SAMPLE".fastq \
-          -fastaout 04_FILTERED/"$SAMPLE".fasta \
+  usearch -fastq_filter 03_TRIMMED_DATA/$SAMPLE.fastq \
+          -fastaout 04_FILTERED_DATA/$SAMPLE.fasta \
           -fastq_maxee 1 \
-          -threads 2 &> 04_FILTERED/"$SAMPLE".log
+          -threads 4 &> 04_FILTERED_DATA/$SAMPLE.log
 done
 
 # Pool samples
-
-## ARCHAEAL PRIMERS
-for SAMPLE in $(cat SAMPLES.txt | grep "A-"); do
-  cat 04_FILTERED/"$SAMPLE".fasta |
-  awk -v NAME=$SAMPLE '/^>/{print ">" NAME "_read" ++i ";barcodelabel=" NAME; next}{print}' >> 04_FILTERED/ARCHAEA_filtered.fasta
-done
-
-## BACTERIAL PRIMERS
-for SAMPLE in $(cat SAMPLES.txt | grep "B-"); do
-  cat 04_FILTERED/"$SAMPLE".fasta |
-  awk -v NAME=$SAMPLE '/^>/{print ">" NAME "_read" ++i ";barcodelabel=" NAME; next}{print}' >> 04_FILTERED/BACTERIA_filtered.fasta
-done
+for SAMPLE in $(cat SAMPLES.txt); do
+  cat 04_FILTERED_DATA/$SAMPLE.fasta |
+  awk -v NAME=$SAMPLE '/^>/{print ">" NAME "_read" ++i ";barcodelabel=" NAME; next}{print}'
+done > filtered.fasta
 
 # Dereplicate reads
-for DATA in ARCHAEA BACTERIA; do
-  usearch -fastx_uniques 04_FILTERED/"$DATA"_filtered.fasta \
-          -fastaout 05_OTUs/"$DATA"_uniques.fasta \
-          -relabel Uniq \
-          -sizeout \
-          -threads 1
-done
+usearch -fastx_uniques filtered.fasta \
+        -fastaout uniques.fasta \
+        -relabel Uniq \
+        -sizeout \
+        -threads 4
 
 # Cluster OTUs/ASVs
-for DATA in ARCHAEA BACTERIA; do
-  usearch -cluster_otus 05_OTUs/"$DATA"_uniques.fasta \
-          -otus 05_OTUs/"$DATA"_OTUs.fasta \
-          -relabel "$DATA"_OTU
+usearch -cluster_otus uniques.fasta \
+        -otus 05_OTUs/OTUs.fasta \
+        -relabel OTU
 
-  usearch -unoise3 05_OTUs/"$DATA"_uniques.fasta \
-          -zotus 05_OTUs/"$DATA"_ASVs.fasta
-
-  sed -i 's/Zotu/ASV/g' 05_OTUs/"$DATA"_ASVs.fasta
-done
+usearch -unoise3 uniques.fasta \
+        -zotus 05_OTUs/ASVs.fasta
 
 # Assign taxonomy with RDP in QIIME
-module load qiime/1.9.1
+conda activate qiime-1.9.1
 
 ## GREENGENES
-for DATA in ARCHAEA BACTERIA; do
-  for TYPE in OTUs ASVs; do
-    assign_taxonomy.py -i 05_OTUs/"$DATA"_"$TYPE".fasta \
-                       -m rdp \
-                       -o GREENGENES
-  done
+for DATA in OTUs ASVs; do
+  assign_taxonomy.py -i 05_OTUs/$DATA.fasta \
+                     -o 05_OTUs/GREENGENES \
+                     -m rdp
 done
 
 ## SILVA
-for DATA in ARCHAEA BACTERIA; do
-  for TYPE in OTUs ASVs; do
-    assign_taxonomy.py -i 05_OTUs/"$DATA"_"$TYPE".fasta \
-                       -t $WRKDIR/DONOTREMOVE/SILVA_132_QIIME_release/taxonomy/16S_only/97/taxonomy_7_levels.txt \
-                       -r $WRKDIR/DONOTREMOVE/SILVA_132_QIIME_release/rep_set/rep_set_16S_only/97/silva_132_97_16S.fna \
-                       -m rdp \
-                       -o SILVA \
-                       --rdp_max_memory 128000
-  done
+for DATA in OTUs ASVs; do
+  assign_taxonomy.py -i 05_OTUs/$DATA.fasta \
+                     -o 05_OTUs/SILVA \
+                     -t 00_SILVA_132_QIIME_release/taxonomy/16S_only/97/taxonomy_7_levels.txt \
+                     -r 00_SILVA_132_QIIME_release/rep_set/rep_set_16S_only/97/silva_132_97_16S.fna \
+                     -m rdp \
+                     --rdp_max_memory 128000
 done
 
 # Remove mitochondria and chloroplast
-for DATA in ARCHAEA BACTERIA; do
-  for TYPE in OTUs ASVs; do
-    usearch -fastx_getseqs 05_OTUs/"$DATA"_"$TYPE".fasta \
-            -labels 05_OTUs/"$DATA"_"$TYPE"_final.txt \
-            -fastaout 05_OTUs/"$DATA"_"$TYPE"_final.fasta
-  done
+for DATA in OTUs ASVs; do
+  cat 05_OTUs/GREENGENES/"$DATA"_tax_assignments.txt |
+  grep -v "mitochondria" |
+  grep -v "Chloroplast" |
+  cut -f 1 > 05_OTUs/$DATA.good.txt
+
+  usearch -fastx_getseqs 05_OTUs/$DATA.fasta \
+          -labels 05_OTUs/$DATA.good.txt \
+          -fastaout 05_OTUs/$DATA.good.fasta
 done
 
 # Make OTU/ASV tables
-for DATA in ARCHAEA BACTERIA; do
-  usearch -otutab 04_FILTERED/"$DATA"_filtered.fasta \
-          -otus 05_OTUs/"$DATA"_OTUs_final.fasta \
-          -otutabout 06_OTU_tables/"$DATA"_OTU_table.txt \
-          -threads 2
+usearch -otutab filtered.fasta \
+        -otus 05_OTUs/OTUs.good.fasta \
+        -otutabout 05_OTUs/OTU_table.txt \
+        -threads 2
 
-  usearch -otutab 04_FILTERED/"$DATA"_filtered.fasta \
-          -zotus 05_OTUs/"$DATA"_ASVs_final.fasta \
-          -otutabout 06_OTU_tables/"$DATA"_ASV_table.txt \
-          -threads 2
+usearch -otutab filtered.fasta \
+        -zotus 05_OTUs/ASVs.good.fasta \
+        -otutabout 05_OTUs/_ASV_table.txt \
+        -threads 2
 done
