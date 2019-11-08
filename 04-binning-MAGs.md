@@ -22,7 +22,6 @@ Profiles from each sample are merged into one single file and CONCOCT is used to
 ```bash
 cd $WORKDIR/04_BINNING/BINNING_"$ASSEMBLY"
 
-module load biokit
 conda activate anvio6
 
 # Rename contigs and select those >2,500 bp
@@ -104,10 +103,12 @@ anvi-run-scg-taxonomy -c CONTIGS.db \
                       -T 4
 
 # Pre-cluster with CONCOCT
-anvi-cluster-with-concoct -c CONTIGS.db \
-                          -p MERGED_PROFILES/PROFILE.db \
-                          -C CONCOCT \
-                          --num-clusters-requested 100
+anvi-cluster-contigs -c CONTIGS.db \
+                     -p MERGED_PROFILES/PROFILE.db \
+                     -C CONCOCT \
+                     -T 4 \
+                     --driver concoct \
+                     --clusters 100
 
 # Summarize CONCOCT bins
 anvi-summarize -c CONTIGS.db \
@@ -122,4 +123,18 @@ anvi-split -p PROFILE.db \
            -C CONCOCT \
            -o CONCOCT_SPLIT \
            --skip-variability-tables
+
+# Bin MAGs
+for CLUSTER in $(seq 51 100 | awk -v OFS='_' '{print "Bin", $0}'); do
+  anvi-refine -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
+              -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
+              -b ALL_SPLITS \
+              -C DEFAULT \
+              --server-only
+
+  anvi-summarize -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
+                 -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
+                 -o CONCOCT_SPLIT/$CLUSTER.SUMMARY \
+                 -C DEFAULT &> /dev/null
+done
 ```
