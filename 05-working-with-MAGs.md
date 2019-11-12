@@ -26,7 +26,7 @@ done
 
 ---
 
-Now we will run CHECKM and METAQUAST to compute some statistics about the MAGs.
+Now we will run CHECKM and QUAST to compute some statistics about the MAGs.
 
 ### Analyse MAGs with CHECKM
 
