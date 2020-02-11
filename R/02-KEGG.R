@@ -7,11 +7,11 @@ source("00-DARKFUNCTIONS.R")
 # Set working directory
 setwd("~/Helsinki/analyses/")
 
-# Read metadata
-metadata <- read.table("00_METADATA/metadata_clean.tsv", header = T, sep = "\t")
-
 # Create list of samples
 SAMPLES <- scan("SAMPLES.txt", character(), quote = "") 
+
+# Read metadata
+metadata <- read.table("00_METADATA/metadata_clean.tsv", header = T, sep = "\t")
 
 # Subset metadata
 metadata <- metadataSub(SAMPLES)
@@ -34,8 +34,36 @@ SAMPLES <- metadata %>%
 
 modules <- modules[SAMPLES]
 
+# Compute richness
+modules.div <- apply(modules, 2, function (x) sum(x > 0)) %>% 
+  as.data.frame %>% 
+  tibble::rownames_to_column("Sample") %>% 
+  rename("Richness" = ".")
+
 # Transform to relative abundance
 modules.rel <- sweep(modules, 2, colSums(modules), "/")
+
+
+##### BARPLOT #####
+
+library("ggplot2")
+
+# Prepare data
+modules.div.box <- modules.div %>% 
+  melt %>% 
+  merge(metadata, by = "Sample")
+
+# Plot
+png("02_KEGG/KEGG-div-boxplot.png", width = 1600, height = 1200, res = 150)
+ggplot(modules.div.box, aes(x = Habitat, y = value, )) +
+  geom_boxplot(outlier.shape = NA, aes(fill = Habitat)) +
+  geom_jitter(shape = 16, position = position_jitter(0.1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), axis.title.x = element_blank(),
+        axis.line = element_blank(), legend.position = "none",
+        panel.border = element_rect(fill = NA), strip.background = element_rect(fill = "grey90")) +
+  ylab("Richness") +
+  scale_fill_manual(values = c("#dfc3f8", "#beefc1", "#eca6c1", "#61b7d9", "#f9b99f", "#d8deff", "#b3a5cb"))
+dev.off()
 
 
 ##### HEATMAP #####

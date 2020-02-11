@@ -8,11 +8,11 @@ source("00-DARKFUNCTIONS.R")
 # Set working directory
 setwd("~/Helsinki/analyses/")
 
-# Read metadata
-metadata <- read.table("00_METADATA/metadata_clean.tsv", header = T, sep = "\t")
-
 # Create list of samples
 SAMPLES <- scan("SAMPLES.txt", character(), quote = "") 
+
+# Read metadata
+metadata <- read.table("00_METADATA/metadata_clean.tsv", header = T, sep = "\t")
 
 # Subset metadata
 metadata <- metadataSub(SAMPLES)
@@ -22,8 +22,8 @@ phylum <- read.table("02_METAXA/summary_level_2.txt", header = T, sep = "\t")
 genus  <- read.table("02_METAXA/summary_level_6.txt", header = T, sep = "\t")
 
 # Split taxonomy
-phylum <- data.frame(phylum[SAMPLES],  colsplit(phylum$Taxa, pattern = "\\;", names = c("Domain", "Phylum")))
-genus  <- data.frame(genus[SAMPLES],   colsplit(genus$Taxa,  pattern = "\\;", names = c("Domain", "Phylum", "Class", "Order", "Family", "Genus")))
+phylum <- data.frame(phylum[SAMPLES], colsplit(phylum$Taxa, pattern = "\\;", names = c("Domain", "Phylum")))
+genus  <- data.frame(genus [SAMPLES], colsplit(genus $Taxa, pattern = "\\;", names = c("Domain", "Phylum", "Class", "Order", "Family", "Genus")))
 
 # Keep only bacteria and archaea
 phylum <- phylum %>% 
@@ -54,6 +54,17 @@ SAMPLES <- metadata %>%
 phylum <- phylum[SAMPLES]
 genus  <- genus [SAMPLES]
 
+# Compute richness
+phylum.div <- apply(phylum, 2, function (x) sum(x > 0)) %>% 
+  as.data.frame %>% 
+  tibble::rownames_to_column("Sample") %>% 
+  rename("Richness" = ".")
+
+genus.div <- apply(genus, 2, function (x) sum(x > 0)) %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("Sample") %>% 
+  rename("Richness" = ".")
+
 # Transform to relative abundance
 phylum.rel <- sweep(phylum, 2, colSums(phylum), "/")
 genus.rel  <- sweep(genus,  2, colSums(genus),  "/")
@@ -71,6 +82,14 @@ library("forcats")
 # Prepare data
 phylum.bar <- cbind(Phylum = phylum.hier$Phylum, phylum.rel)
 genus.bar  <- cbind(Genus  = genus.hier $Genus,  genus.rel)
+
+phylum.div.box <- phylum.div %>% 
+  melt %>% 
+  merge(metadata, by = "Sample")
+
+genus.div.box <- genus.div %>% 
+  melt %>% 
+  merge(metadata, by = "Sample")
 
 # Reorder taxa by abundance
 phylum.bar <- phylum.bar %>% 
@@ -104,6 +123,28 @@ plot(plotBarplot(genus.bar)) +
   scale_fill_manual(values = c("#e2f0ff", "#daa883", "#89caf7", "#e6cf99", "#7fb0e1", "#f0f6bc", "#c1baf1", "#acbf89", "#d7a7d4", "#c6ffd7",
                                "#d39cb4", "#90eade", "#db9c8d", "#71d4de", "#ffc4a6", "#55bac7", "#ffcfb7", "#a7f0ff", "#cea387", "#d0ffff",
                                "#bbab7c", "#d8dbff", "#88c29d", "#ffd9f7", "#8dd8bd", "#c7dfff", "#95b396", "#eefff4", "#bba7a3", "#95b1b2"))
+dev.off()
+
+png("02_METAXA/METAXA-PHYLUM-div-boxplot.png", width = 1600, height = 1200, res = 150)
+ggplot(phylum.div.box, aes(x = Habitat, y = value, )) +
+  geom_boxplot(outlier.shape = NA, aes(fill = Habitat)) +
+  geom_jitter(shape = 16, position = position_jitter(0.1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), axis.title.x = element_blank(),
+        axis.line = element_blank(), legend.position = "none",
+        panel.border = element_rect(fill = NA), strip.background = element_rect(fill = "grey90")) +
+  ylab("Richness") +
+  scale_fill_manual(values = c("#dfc3f8", "#beefc1", "#eca6c1", "#61b7d9", "#f9b99f", "#d8deff", "#b3a5cb"))
+dev.off()
+
+png("02_METAXA/METAXA-GENUS-div-boxplot.png", width = 1600, height = 1200, res = 150)
+ggplot(genus.div.box, aes(x = Habitat, y = value, )) +
+  geom_boxplot(outlier.shape = NA, aes(fill = Habitat)) +
+  geom_jitter(shape = 16, position = position_jitter(0.1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), axis.title.x = element_blank(),
+        axis.line = element_blank(), legend.position = "none",
+        panel.border = element_rect(fill = NA), strip.background = element_rect(fill = "grey90")) +
+  ylab("Richness") +
+  scale_fill_manual(values = c("#dfc3f8", "#beefc1", "#eca6c1", "#61b7d9", "#f9b99f", "#d8deff", "#b3a5cb"))
 dev.off()
 
 

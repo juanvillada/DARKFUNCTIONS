@@ -1,16 +1,14 @@
 # Binning of MAGs
 
-## Co-assemblies
-
 ### Define assembly and create list of sample names
 
 ```bash
-ASSEMBLY=01
+ASSEMBLY=ASSEMBLY_01
 SAMPLES=$(cat $WORKDIR/SAMPLES.txt | egrep -v [mo]122)
 
 #OR
 
-ASSEMBLY=02
+ASSEMBLY=ASSEMBLY_02
 SAMPLES=$(cat $WORKDIR/SAMPLES.txt | egrep [mo]122)
 ```
 
@@ -20,22 +18,22 @@ Here we will start binning contigs into MAGs with ANVI’O. First we rename the 
 Profiles from each sample are merged into one single file and CONCOCT is used to pre-cluster a fixed number of clusters to reduce the size of the files and allow binning.
 
 ```bash
-cd $WORKDIR/04_BINNING/BINNING_"$ASSEMBLY"
+cd $WORKDIR/04_BINNING/$ASSEMBLY
 
 conda activate anvio6
 
 # Rename contigs and select those >2,500 bp
-anvi-script-reformat-fasta $WORKDIR/03_ASSEMBLIES/ASSEMBLY_"$ASSEMBLY"/final.contigs.fa \
+anvi-script-reformat-fasta $WORKDIR/03_ASSEMBLIES/$ASSEMBLY/final.contigs.fa \
                            -o CONTIGS_2500nt.fa \
                            -r CONTIGS_reformat.txt \
                            -l 2500 \
-                           --prefix assembly_"$ASSEMBLY" \
+                           --prefix $ASSEMBLY \
                            --simplify-names
 
 # Build a contigs database
 anvi-gen-contigs-database -f CONTIGS_2500nt.fa \
                           -o CONTIGS.db \
-                          -n assembly_"$ASSEMBLY"
+                          -n $ASSEMBLY
 
 # Find single-copy genes with HMMER
 anvi-run-hmms -c CONTIGS.db \
@@ -49,7 +47,7 @@ anvi-get-sequences-for-gene-calls -c CONTIGS.db \
 centrifuge -f gene_calls.fa \
            -S centrifuge_hits.tsv \
            -x $CENTRIFUGE_BASE/p+h+v \
-           -p 16
+           -p 20
 
 # Import CENTRIFUGE results
 anvi-import-taxonomy-for-genes -i centrifuge_report.tsv centrifuge_hits.tsv \
@@ -69,7 +67,7 @@ for SAMPLE in $SAMPLES; do
           -2 $WORKDIR/01_TRIMMED_DATA/"$SAMPLE"_R2_trimmed.fastq  \
           -S MAPPING/$SAMPLE.sam \
           -x MAPPING/contigs \
-          --threads 8 \
+          --threads 10 \
           --no-unal
 
   # Create and index BAM file
@@ -106,7 +104,7 @@ anvi-run-scg-taxonomy -c CONTIGS.db \
 anvi-cluster-contigs -c CONTIGS.db \
                      -p MERGED_PROFILES/PROFILE.db \
                      -C CONCOCT \
-                     -T 4 \
+                     -T 40 \
                      --driver concoct \
                      --clusters 100
 
@@ -124,17 +122,42 @@ anvi-split -p PROFILE.db \
            -o CONCOCT_SPLIT \
            --skip-variability-tables
 
+for NUMBER in $(seq 1 100); do
+  mv CONCOCT_SPLIT/Bin_"$NUMBER" CONCOCT_SPLIT/Cluster_"$NUMBER"
+done
+
 # Bin MAGs
-for CLUSTER in $(seq 51 100 | awk -v OFS='_' '{print "Bin", $0}'); do
-  anvi-refine -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
-              -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
-              -b ALL_SPLITS \
-              -C DEFAULT \
-              --server-only
+for CLUSTER in $(seq 31 100 | awk -v OFS='_' '{print "Cluster", $0}'); do
+  anvi-interactive -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
+                   -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
+                   --server-only
+done
+
+# Call MAGs
+for NUMBER in $(seq 31 100); do
+  anvi-rename-bins -p CONCOCT_SPLIT/Cluster_"$NUMBER"/PROFILE.db \
+                   -c CONCOCT_SPLIT/Cluster_"$NUMBER"/CONTIGS.db \
+                   --report-file CONCOCT_SPLIT/Cluster_"$NUMBER"/renamed_bins.txt \
+                   --collection-to-read DEFAULT \
+                   --collection-to-write FINAL \
+                   --min-completion-for-MAG 50 \
+                   --max-redundancy-for-MAG 10 \
+                   --prefix "$ASSEMBLY"_"$NUMBER" \
+                   --call-MAGs
+done
+
+# Refine MAGs
+for CLUSTER in $(seq 31 100 | awk -v OFS='_' '{print "Cluster", $0}'); do
+  for MAG in $(sqlite3 CONCOCT_SPLIT/$CLUSTER/PROFILE.db 'SELECT bin_name FROM collections_bins_info' | grep MAG); do
+    anvi-refine -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
+                -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
+                -C FINAL \
+                -b $MAG
+  done
 
   anvi-summarize -p CONCOCT_SPLIT/$CLUSTER/PROFILE.db \
                  -c CONCOCT_SPLIT/$CLUSTER/CONTIGS.db \
-                 -o CONCOCT_SPLIT/$CLUSTER.SUMMARY \
-                 -C DEFAULT &> /dev/null
+                 -o CONCOCT_SPLIT/$CLUSTER.SUMMARY   \
+                 -C FINAL
 done
 ```
