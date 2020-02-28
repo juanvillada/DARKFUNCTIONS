@@ -7,7 +7,7 @@ We will be working here with all MAGs (≥50% completeness, ≤10% contamination
 ```bash
 cd $WORKDIR/05_MAGs
 
-conda activate anvio6
+conda activate anvio-master
 
 # ASSEMBLY 01
 for CLUSTER in $(seq 31 100 | awk -v OFS='_' '{print "Cluster", $0}'); do
@@ -18,7 +18,22 @@ for CLUSTER in $(seq 31 100 | awk -v OFS='_' '{print "Cluster", $0}'); do
     printf '%s\t%s\n' $MAG $NEWMAG >> renamed_MAGs.txt
 
     anvi-script-reformat-fasta $WORKDIR/04_BINNING/ASSEMBLY_01/CONCOCT_SPLIT/$CLUSTER.SUMMARY/bin_by_bin/$MAG/$MAG-contigs.fa \
-                               -o REDUNDANT_MAGS/$NEWMAG.fa \
+                               --output-file REDUNDANT_MAGS/$NEWMAG.fa \
+                               --simplify-names \
+                               --prefix $NEWMAG
+  done
+done
+
+# ASSEMBLY 02
+for CLUSTER in $(seq 31 100 | awk -v OFS='_' '{print "Cluster", $0}'); do
+  for MAG in $(sqlite3 $WORKDIR/04_BINNING/ASSEMBLY_02/CONCOCT_SPLIT/$CLUSTER/PROFILE.db 'SELECT bin_name FROM collections_bins_info' | grep MAG); do
+    COUNT=$(expr $COUNT + 1)
+    NEWMAG=$(printf '%s_%s_%04d\n' bog MAG $COUNT)
+
+    printf '%s\t%s\n' $MAG $NEWMAG >> renamed_MAGs.txt
+
+    anvi-script-reformat-fasta $WORKDIR/04_BINNING/ASSEMBLY_02/CONCOCT_SPLIT/$CLUSTER.SUMMARY/bin_by_bin/$MAG/$MAG-contigs.fa \
+                               --output-file REDUNDANT_MAGS/$NEWMAG.fa \
                                --simplify-names \
                                --prefix $NEWMAG
   done
@@ -95,23 +110,20 @@ As MAGs come from two different co-assemblies, it is likely that MAGs correspond
 cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
-anvi-activate-master
 
 printf '%s\t%s\n' name path > fastANI_paths.txt
 
 for MAG in $(ls REDUNDANT_MAGS/ | sed 's/.fa//g'); do
   echo $MAG | awk -v OFS='\t' '{print $0, "REDUNDANT_MAGS/" $0 ".fa"}'
-done >> fasta_paths.txt
+done >> fastANI_paths.txt
 
-anvi-dereplicate-genomes --fasta-text-file fasta_paths.txt \
+anvi-dereplicate-genomes --fasta-text-file fastANI_paths.txt \
                          --output-dir FASTANI \
                          --program fastANI \
                          --num-threads 40 \
                          --similarity-threshold 0.90
 
-mv FASTANI/GENOMES NON_REDUNDANT_MAGS
-
-cat NON_REDUNDANT_MAGS/*.fa > non_redundant_MAGs.fa
+cat NON_REDUNDANT_MAGS/GENOMES/*.fa > non_redundant_MAGs.fa
 ```
 
 --
@@ -176,4 +188,92 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES_RNAseq.txt); do
   # Remove SAM and non-indexed BAM files
   rm -f $SAMPLE.sam $SAMPLE.RAW.bam
 done
+```
+
+---
+
+And now we will import the set of non-redundant MAGs to ANVI'O.
+
+### Import non-redundant MAGs to ANVI'O
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate anvio-master
+
+# Build a contigs database
+anvi-gen-contigs-database --contigs-fasta non_redundant_MAGs.fa \
+                          --output-db-path CONTIGS.db \
+                          --project-name NR_MAGS
+
+# Find single-copy genes with HMMER
+anvi-run-hmms --contigs-db CONTIGS.db \
+              --num-threads 40
+
+# Create map of splits to bins
+for SPLIT in $(sqlite3 CONTIGS.db 'select split from splits_basic_info'); do
+  MAG=$(echo $SPLIT | awk -F '_' -v OFS='_' '{print $1, $2, $3}')
+  printf '%s\t%s\n' $SPLIT $MAG
+done > non_redundant_MAGs_splits.txt
+
+# Metagenome profiling
+
+## Build profile databases
+for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
+  anvi-profile --input-file MAPPING/$SAMPLE.bam \
+               --output-dir PROFILES/$SAMPLE \
+               --contigs-db CONTIGS.db \
+               --num-threads 40
+done
+
+## Merge profiles
+anvi-merge PROFILES/*/PROFILE.db \
+           --output-dir MERGED_PROFILES \
+           --contigs-db CONTIGS.db
+
+## Import refined MAGs
+anvi-import-collection non_redundant_MAGs_splits.txt \
+                       --contigs-db CONTIGS.db \
+                       --pan-or-profile-db MERGED_PROFILES/PROFILE.db \
+                       --collection-name NR_MAGS
+
+# Metatranscriptome profiling
+
+## Build profile databases
+for SAMPLE in $(cat $WORKDIR/SAMPLES_RNAseq.txt); do
+  anvi-profile --input-file MAPPING_RNASEQ/$SAMPLE.bam \
+               --output-dir PROFILES_RNASEQ/$SAMPLE \
+               --contigs-db CONTIGS.db \
+               --num-threads 40
+done
+
+## Merge profiles
+anvi-merge PROFILES_RNASEQ/*/PROFILE.db \
+           --output-dir MERGED_PROFILES_RNASEQ \
+           --contigs-db CONTIGS.db
+
+## Import refined MAGs
+anvi-import-collection non_redundant_MAGs_splits.txt \
+                       --contigs-db CONTIGS.db \
+                       --pan-or-profile-db MERGED_PROFILES_RNASEQ/PROFILE.db \
+                       --collection-name NR_MAGS_RNASEQ
+```
+
+### Summarize refined MAGs
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate anvio-master
+
+anvi-summarize --contigs-db CONTIGS.db \
+               --output-dir REFINED_MAGS_SUMMARY \
+               --pan-or-profile-db MERGED_PROFILES/PROFILE.db \
+               --collection-name NR_MAGS
+
+anvi-summarize --contigs-db CONTIGS.db \
+               --output-dir REFINED_MAGS_RNASEQ_SUMMARY \
+               --pan-or-profile-db MERGED_PROFILES_RNASEQ/PROFILE.db \
+               --collection-name NR_MAGS_RNASEQ \
+               --init-gene-coverages
 ```
