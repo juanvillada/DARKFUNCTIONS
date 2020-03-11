@@ -128,7 +128,7 @@ cat NON_REDUNDANT_MAGS/GENOMES/*.fa > non_redundant_MAGs.fa
 
 --
 
-We will now map the quality-filtered metagenomic and metatranscriptomic data to the set of non-redundant MAGs to quantify their abundance across the samples.
+We will now map the quality-filtered metagenomic and metatranscriptomic data to the set of non-redundant MAGs to quantify their abundance across the samples. For metatranscriptomes, we will will work with the data after removing rRNA reads using SORTMERNA.
 
 ### Map reads to non-redundant MAGs with BOWTIE
 
@@ -210,6 +210,11 @@ anvi-gen-contigs-database --contigs-fasta non_redundant_MAGs.fa \
 anvi-run-hmms --contigs-db CONTIGS.db \
               --num-threads 40
 
+# Get taxonomy for single copy genes
+anvi-run-scg-taxonomy --contigs-db CONTIGS.db \
+                      --num-parallel-processes 10 \
+                      --num-threads 4
+
 # Create map of splits to bins
 for SPLIT in $(sqlite3 CONTIGS.db 'select split from splits_basic_info'); do
   MAG=$(echo $SPLIT | awk -F '_' -v OFS='_' '{print $1, $2, $3}')
@@ -231,7 +236,7 @@ anvi-merge PROFILES/*/PROFILE.db \
            --output-dir MERGED_PROFILES \
            --contigs-db CONTIGS.db
 
-## Import refined MAGs
+## Create collection
 anvi-import-collection non_redundant_MAGs_splits.txt \
                        --contigs-db CONTIGS.db \
                        --pan-or-profile-db MERGED_PROFILES/PROFILE.db \
@@ -252,11 +257,104 @@ anvi-merge PROFILES_RNASEQ/*/PROFILE.db \
            --output-dir MERGED_PROFILES_RNASEQ \
            --contigs-db CONTIGS.db
 
-## Import refined MAGs
+## Create collection
 anvi-import-collection non_redundant_MAGs_splits.txt \
                        --contigs-db CONTIGS.db \
                        --pan-or-profile-db MERGED_PROFILES_RNASEQ/PROFILE.db \
                        --collection-name NR_MAGS_RNASEQ
+```
+
+---
+
+Now we will start annotating the MAGs. We will do this on the gene calls found by PRODIGAL within ANVI'O. We will annotate them against the KEGG database using DIAMOND and against the SEED database using myRAST.
+
+### Get sequences for gene calls
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate anvio-master
+
+anvi-export-gene-calls --contigs-db CONTIGS.db \
+                       --output-file gene_calls.txt \
+                       --gene-caller prodigal
+
+anvi-get-sequences-for-gene-calls --contigs-db CONTIGS.db \
+                                  --output-file gene_calls.fa
+
+anvi-get-sequences-for-gene-calls --contigs-db CONTIGS.db \
+                                  --output-file gene_calls.faa \
+                                  --get-aa-sequences
+```
+
+### Annotate genes against COG with BLAST
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate anvio-master
+
+anvi-run-ncbi-cogs --contigs-db CONTIGS.db \
+                   --num-threads 40
+```
+
+### Annotate genes against KEGG with DIAMOND
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate KEGGtools
+
+# Run DIAMOND
+diamond blastx --query gene_calls.fa \
+               --out gene_calls_KEGG.txt \
+               --db $KEGG/PROKARYOTES \
+               --outfmt 6 \
+               --evalue 0.00001 \
+               --id 60 \
+               --max-target-seqs 1 \
+               --max-hsps 1 \
+               --threads 40
+
+# Run KEGG-tools
+KEGG-tools-assign.py -i gene_calls_KEGG.txt \
+                     -a $KEGG
+
+# Create an annotation file and import to ANVI'O
+conda activate anvio-master
+
+printf '%s\t%s\t%s\t%s\t%s\n' gene_callers_id source accession function e_value > gene_calls_KEGG_annot.txt
+
+sed '1d' gene_calls_KEGG_KOtable.txt |
+awk -v OFS='\t' -F '\t' '{print $1, "KEGG", $3, $6, $5}'  >> gene_calls_KEGG_annot.txt
+
+anvi-import-functions --contigs-db CONTIGS.db \
+                      --input-files gene_calls_KEGG_annot.txt
+```
+
+### Map genes to KEGG modules
+
+```bash
+cd $WORKDIR/05_MAGs
+
+conda activate KEGGtools
+
+# Split KEGG annotation by MAG
+cut -f 1,2 gene_calls.txt |
+cut -f 1-3 -d '_' |
+sed '1d' |
+sort -k 1,1 > KEGG-MODULES/gene_calls_KEGG_by_MAG.txt
+
+for MAG in $(cat non_redundant_MAGs.txt); do
+  grep $MAG KEGG-MODULES/gene_calls_KEGG_by_MAG.txt |
+  cut -f 1 |
+  join -1 1 -2 1 -t $'\t' - <(sort -k 1,1 gene_calls_KEGG.txt) > KEGG-MODULES/$MAG.txt
+
+  KEGG-tools-assign.py -i KEGG-MODULES/$MAG.txt \
+                       -o KEGG-MODULES \
+                       -a $KEGG \
+                       --summarise
+done
 ```
 
 ### Summarize refined MAGs
@@ -269,7 +367,8 @@ conda activate anvio-master
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_SUMMARY \
                --pan-or-profile-db MERGED_PROFILES/PROFILE.db \
-               --collection-name NR_MAGS
+               --collection-name NR_MAGS \
+               --init-gene-coverages
 
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_RNASEQ_SUMMARY \
