@@ -119,12 +119,11 @@ indexdb_rna -v --ref $SORTMEDB
 
 # Find rRNA sequences
 for SAMPLE in $(cat $WORKDIR/SAMPLES_RNAseq.txt); do
-  sortmerna --reads "$SAMPLE"_trimmed.fasta
+  sortmerna --reads "$SAMPLE"_trimmed.fasta \
             --ref $SORTMEDB \
             --aligned "$SAMPLE"_rRNA \
             --other "$SAMPLE"_norRNA \
             --fastx \
-            -a 20 \
-            -v
+            -a 20
 done
 ```
