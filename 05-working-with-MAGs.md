@@ -303,7 +303,7 @@ anvi-run-ncbi-cogs --contigs-db CONTIGS.db \
 ```bash
 cd $WORKDIR/05_MAGs
 
-conda activate KEGGtools
+conda activate anvio-master
 
 # Run DIAMOND
 diamond blastx --query gene_calls.fa \
@@ -315,46 +315,29 @@ diamond blastx --query gene_calls.fa \
                --max-target-seqs 1 \
                --max-hsps 1 \
                --threads 40
-
-# Run KEGG-tools
-KEGG-tools-assign.py -i gene_calls_KEGG.txt \
-                     -a $KEGG
-
-# Create an annotation file and import to ANVI'O
-conda activate anvio-master
-
-printf '%s\t%s\t%s\t%s\t%s\n' gene_callers_id source accession function e_value > gene_calls_KEGG_annot.txt
-
-sed '1d' gene_calls_KEGG_KOtable.txt |
-awk -v OFS='\t' -F '\t' '{print $1, "KEGG", $3, $6, $5}'  >> gene_calls_KEGG_annot.txt
-
-anvi-import-functions --contigs-db CONTIGS.db \
-                      --input-files gene_calls_KEGG_annot.txt
 ```
 
-### Map genes to KEGG modules
+```bash
+# In R, parse the DIAMOND results and get KO numbers
+library("tidyverse")
+library("keggR")
+
+loadKEGG("/projappl/project_2000577/KEGG")
+
+KOtable <- readBlast("gene_calls_KEGG.txt") %>%
+  assignKEGG
+
+anvio <- KOtable %>%
+  KOtable2ANVIO
+
+write_delim(KOtable, "gene_calls_KEGG_KOtable.txt", delim = "\t", col_names = T)
+write_delim(anvio, "gene_calls_KEGG_annot.txt", delim = "\t", col_names = T)
+```
 
 ```bash
-cd $WORKDIR/05_MAGs
-
-conda activate KEGGtools
-
-# Split KEGG annotation by MAG
-cut -f 1,2 gene_calls.txt |
-cut -f 1-3 -d '_' |
-sed '1d' |
-sort -k 1,1 > KEGG-MODULES/gene_calls_KEGG_by_MAG.txt
-
-for MAG in $(cat non_redundant_MAGs.txt); do
-  grep $MAG KEGG-MODULES/gene_calls_KEGG_by_MAG.txt |
-  cut -f 1 |
-  join -1 1 -2 1 -t $'\t' - <(sort -k 1,1 gene_calls_KEGG.txt) > KEGG-MODULES/$MAG.txt
-
-  KEGG-tools-assign.py -i KEGG-MODULES/$MAG.txt \
-                       -o KEGG-MODULES \
-                       -a $KEGG \
-                       --summarise
-done
+# Import KEGG annotation to ANVI'O
+anvi-import-functions --contigs-db CONTIGS.db \
+                      --input-files gene_calls_KEGG_annot.txt
 ```
 
 ### Summarize refined MAGs
