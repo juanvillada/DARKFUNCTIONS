@@ -1,4 +1,4 @@
-# Read-based analyses 
+# Read-based analyses
 
 First we will use METAXA to look for 16S rRNA gene sequences and obtain a taxonomic profile for each sample. Next we will run DIAMOND to map the reads against the KEGG database and generate functional profiles. We will then use an in-house script (https://github.com/igorspp/KEGG-tools) to parse the DIAMOND results. It (i) assigns a KO identifier to each hit, (ii) runs MinPath to remove spurious pathways, and (iii) summarises the abundance of each pathway. We will work here with the dataset which has been resampled to 2,000,000 reads.
 
@@ -35,7 +35,7 @@ done
 ```bash
 cd $WORKDIR/02_KEGG
 
-module load biokit/4.9.3
+module load biokit
 
 # Convert reads to FASTA and rename headers
 for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
@@ -58,17 +58,40 @@ for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
                  --max-hsps 1 \
                  --threads 4
 done
+```
 
-# Run KEGG-tools
-module load biopython-env/2.7.13
+```bash
+conda activate keggR
 
-for SAMPLE in $(cat $WORKDIR/SAMPLES.txt); do
-  KEGG-tools-assign.py -i "$SAMPLE".txt \
-                       -p $SAMPLE \
-                       -a $KEGG \
-                       --summarise \
-                       --minpath
-done
+# Parse results in R with keggR
+library("tidyverse")
+library("keggR")
 
-KEGG-tools-collect.py -s $WORKDIR/SAMPLES.txt
+## Create list of samples
+SAMPLES <- read_lines("../SAMPLES.txt")
+
+## Load KEGG auxiliary files
+loadKEGG("/projappl/project_2000577/KEGG")
+
+## Read BLAST results
+data <- lapply(SAMPLES, function(SAMPLE) {
+  readBlast(paste(SAMPLE, ".txt", sep = ""))
+}) %>% set_names(SAMPLES)
+
+## Assign KO and summarise modules
+data <- lapply(data, function(SAMPLE) {
+  SAMPLE %>%
+    assignKEGG %>%
+    runMinpath %>%
+    summariseKEGG
+})
+
+## Merge summaries and get moduleslevel4
+data <- data %>%
+  mergeSummaries %>%
+  getSummary("modules", "level4")
+
+## Write results
+save.image("keggR.RData")
+write_delim(data, "summaries_modules_level4.txt", delim = "\t")
 ```
