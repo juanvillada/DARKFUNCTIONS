@@ -322,16 +322,27 @@ diamond blastx --query gene_calls.fa \
 library("tidyverse")
 library("keggR")
 
+## Load KEGG auxiliary files
 loadKEGG("/projappl/project_2000577/KEGG")
 
-KOtable <- readBlast("gene_calls_KEGG.txt") %>%
+## Read BLAST results
+blast <- readBlast("gene_calls_KEGG.txt")
+
+## Assign KO
+KOtable <- blast %>%
   assignKEGG
 
+## Create file for anvio
 anvio <- KOtable %>%
   KOtable2ANVIO
 
-write_delim(KOtable, "gene_calls_KEGG_KOtable.txt", delim = "\t", col_names = T)
-write_delim(anvio, "gene_calls_KEGG_annot.txt", delim = "\t", col_names = T)
+## Write results
+KOtable %>%
+  getKOtable %>%
+  filter(! KO %in% NA) %>%
+  write_delim("gene_calls_KEGG_KOtable.txt", delim = "\t", col_names = T)
+
+write_delim(anvio, "gene_calls_KEGG_anvio.txt", delim = "\t", col_names = T)
 ```
 
 ```bash
