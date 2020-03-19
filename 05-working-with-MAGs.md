@@ -261,7 +261,7 @@ anvi-merge PROFILES_RNASEQ/*/PROFILE.db \
 anvi-import-collection non_redundant_MAGs_splits.txt \
                        --contigs-db CONTIGS.db \
                        --pan-or-profile-db MERGED_PROFILES_RNASEQ/PROFILE.db \
-                       --collection-name NR_MAGS_RNASEQ
+                       --collection-name NR_MAGS
 ```
 
 ---
@@ -274,10 +274,6 @@ Now we will start annotating the MAGs. We will do this on the gene calls found b
 cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
-
-anvi-export-gene-calls --contigs-db CONTIGS.db \
-                       --output-file gene_calls.txt \
-                       --gene-caller prodigal
 
 anvi-get-sequences-for-gene-calls --contigs-db CONTIGS.db \
                                   --output-file gene_calls.fa
@@ -358,15 +354,18 @@ cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
 
+anvi-export-gene-calls --contigs-db CONTIGS.db \
+                       --output-file gene_calls.txt \
+                       --gene-caller prodigal
+
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_SUMMARY \
                --pan-or-profile-db MERGED_PROFILES/PROFILE.db \
-               --collection-name NR_MAGS \
-               --init-gene-coverages
+               --collection-name NR_MAGS
 
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_RNASEQ_SUMMARY \
                --pan-or-profile-db MERGED_PROFILES_RNASEQ/PROFILE.db \
-               --collection-name NR_MAGS_RNASEQ \
+               --collection-name NR_MAGS \
                --init-gene-coverages
 ```
