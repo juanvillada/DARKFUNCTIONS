@@ -64,6 +64,7 @@ modules.rich <- modules %>%
 # Plot
 png("02_KEGG/KEGG-richness.png", width = 1600, height = 1200, res = 150)
 plotBoxplot(modules.rich, Ecosystem)
+devClose()
 
 
 ##### HEATMAP #####
@@ -75,54 +76,54 @@ modules.map <- bind_cols(modules.hier, modules.rel)
 
 # Keep only pathways with relative abundance > 0.1%
 modules.map <- modules.map %>% 
-  filter(`Level 4` %in% (modules.sum[["All"]] %>% filter(Mean > 0.001) %>% pull(`Level 4`) %>% as.vector))
+  filter(level4 %in% (modules.sum[["All"]] %>% filter(Mean > 0.001) %>% pull(level4) %>% as.vector))
 
 # Reorder taxa
 modules.map <- modules.map %>% 
-  arrange(match(`Level 4`, modules.sum[["All"]] %>% pull(`Level 4`))) %>% 
-  arrange(`Level 2`, `Level 3`)
+  arrange(match(level4, modules.sum[["All"]] %>% pull(level4))) %>% 
+  arrange(level2, level3)
 
 # Transform to data.frame
 modules.map <- data.frame(modules.map, row.names = rownames(modules.map), check.names = F)
 
 # Plot
 plotHeatmap(modules.map,
-            # filename = "02_KEGG/KEGG-heatmap.png",
-            gaps_row = table(modules.map$`Level 2`) %>% as.vector %>% cumsum,
+            filename = "02_KEGG/KEGG-heatmap.png",
+            gaps_row = table(modules.map$level2) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = modules.map %>% select(`Level 2`),
+            annotation_row = modules.map %>% select(level2),
             annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
                                      Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     `Level 2` = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
-                                                   `Cellular processes` = "#feb8a6",
-                                                   `Energy metabolism` = "#82e5ed",
-                                                   `Environmental information processing` = "#e4b4e2",
-                                                   `Genetic information processing` = "#a0eacd",
-                                                   `Metabolism` = "#ffe0e7",
-                                                   `Nucleotide and amino acid metabolism` = "#94b2a6",
-                                                   `Secondary metabolism` = "#aeac9b")),
-            labels_row = paste(modules.map %>% pull(`Level 3`),
-                               modules.map %>% pull(`Level 4`), sep = " / ") %>% as.character)
+                                     level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+                                                `Cellular processes` = "#feb8a6",
+                                                `Energy metabolism` = "#82e5ed",
+                                                `Environmental information processing` = "#e4b4e2",
+                                                `Genetic information processing` = "#a0eacd",
+                                                `Metabolism` = "#ffe0e7",
+                                                `Nucleotide and amino acid metabolism` = "#94b2a6",
+                                                `Secondary metabolism` = "#aeac9b")),
+            labels_row = paste(modules.map %>% pull(level3),
+                               modules.map %>% pull(level4), sep = " / ") %>% as.character)
 devClose()
 
 # Keep only "Carbohydrate and lipid metabolism","Energy metabolism" and "Nucleotide and amino acid metabolism"
 modules.map.small <- modules.map %>% 
-  filter(`Level 2` %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
+  filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
 modules.map.small <- data.frame(modules.map.small, row.names = rownames(modules.map.small), check.names = F)
 
 plotHeatmap(modules.map.small,
-            # filename = "02_KEGG/KEGG-heatmap-small.png",
-            gaps_row = table(modules.map.small$`Level 2`) %>% as.vector %>% cumsum,
+            filename = "02_KEGG/KEGG-heatmap-small.png",
+            gaps_row = table(modules.map.small$level2) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = modules.map.small %>% select(`Level 2`),
+            annotation_row = modules.map.small %>% select(level2),
             annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
                                      Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     `Level 2` = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
-                                                   `Energy metabolism` = "#82e5ed",
-                                                   `Nucleotide and amino acid metabolism` = "#94b2a6")),
-            labels_row = paste(modules.map.small %>% pull(`Level 3`),
-                               modules.map.small %>% pull(`Level 4`), sep = " / ") %>% as.character)
+                                     level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+                                                `Energy metabolism` = "#82e5ed",
+                                                `Nucleotide and amino acid metabolism` = "#94b2a6")),
+            labels_row = paste(modules.map.small %>% pull(level3),
+                               modules.map.small %>% pull(level4), sep = " / ") %>% as.character)
 devClose()
 
 
@@ -155,9 +156,11 @@ modules.mds.org <- modules.ord %>%
 # Plot
 png("02_KEGG/KEGG-NMDS.png", width = 1600, height = 1600, res = 150)
 plotOrdination(modules.mds, metadata, "Ecosystem")
+devClose()
 
 png("02_KEGG/KEGG-NMDS-min.png", width = 1600, height = 1600, res = 150)
 plotOrdination(modules.mds.min, metadata %>% filter(Layer == "mineral"), "Ecosystem")
+devClose()
 
 png("02_KEGG/KEGG-NMDS-org.png", width = 1600, height = 1600, res = 150)
 plotOrdination(modules.mds.org, metadata %>% filter(Layer == "organic"), "Ecosystem")
@@ -166,6 +169,7 @@ metadata %>%
   select(all_of(FLUX.VARS)) %>% 
   envfit(modules.mds.org, .) %>% 
   plot(col = "#b3a5cb")
+devClose()
 
 
 ##### NEGATIVE BINOMIAL ANALYSES (VEGETATION) #####
@@ -195,22 +199,22 @@ modules.bin.veg.map <- bind_cols(modules.bin.veg.norm, modules.bin.veg, modules.
 ## Keep only p < 0.05, reorder by log2FoldChange and keep only "Carbohydrate and lipid metabolism","Energy metabolism" and "Nucleotide and amino acid metabolism"
 modules.bin.veg.map <- modules.bin.veg.map %>% 
   filterDeseq(0.05) %>% 
-  filter(`Level 2` %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
+  filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
 ## Transform to data.frame
 modules.bin.veg.map <- data.frame(modules.bin.veg.map, row.names = rownames(modules.bin.veg.map), check.names = F)
 
 ## Plot
 plotHeatmapBin(modules.bin.veg.map, 
-               # filename = "02_KEGG/KEGG-heatmap-bin-ecosystem.png",
-               annotation_row = modules.bin.veg.map %>% select(`Level 2`),
+               filename = "02_KEGG/KEGG-heatmap-bin-ecosystem.png",
+               annotation_row = modules.bin.veg.map %>% select(level2),
                annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
                                         Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                        `Level 2` = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
-                                                      `Energy metabolism` = "#82e5ed",
-                                                      `Nucleotide and amino acid metabolism` = "#94b2a6")),
-               labels_row = paste(modules.bin.veg.map %>% pull(`Level 3`),
-                                  modules.bin.veg.map %>% pull(`Level 4`), sep = " | ") %>% as.character)
+                                        level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+                                                   `Energy metabolism` = "#82e5ed",
+                                                   `Nucleotide and amino acid metabolism` = "#94b2a6")),
+               labels_row = paste(modules.bin.veg.map %>% pull(level3),
+                                  modules.bin.veg.map %>% pull(level4), sep = " | ") %>% as.character)
 devClose()
 
 
@@ -265,15 +269,15 @@ modules.bin.no.map <- bind_cols(modules.bin.no.norm, modules.bin.no, modules.hie
 ## Keep only p < 0.05, reorder by log2FoldChange AND Keep only "Carbohydrate and lipid metabolism","Energy metabolism" and "Nucleotide and amino acid metabolism"
 modules.bin.ch.map <- modules.bin.ch.map %>% 
   filterDeseq(0.05) %>% 
-  filter(`Level 2` %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
+  filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
 modules.bin.co.map <- modules.bin.co.map %>% 
   filterDeseq(0.05) %>% 
-  filter(`Level 2` %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
+  filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
 modules.bin.no.map <- modules.bin.no.map %>% 
   filterDeseq(0.05) %>% 
-  filter(`Level 2` %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
+  filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
 ## Transform to data.frame
 modules.bin.ch.map <- data.frame(modules.bin.ch.map, row.names = rownames(modules.bin.ch.map), check.names = F)
@@ -282,21 +286,21 @@ modules.bin.no.map <- data.frame(modules.bin.no.map, row.names = rownames(module
 
 # Plot
 plotHeatmapBin2(modules.bin.ch.map, "CH4",
-                # filename = "02_KEGG/KEGG-heatmap-bin-CH4.png",
-                annotation_row = modules.bin.ch.map %>% select(`Level 2`),
-                annotation_colors = list(`Level 2` = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
-                                                       `Energy metabolism` = "#82e5ed",
-                                                       `Nucleotide and amino acid metabolism` = "#94b2a6")),
-                labels_row = paste(modules.bin.ch.map %>% pull(`Level 3`),
-                                   modules.bin.ch.map %>% pull(`Level 4`), sep = " | ") %>% as.character)
+                filename = "02_KEGG/KEGG-heatmap-bin-CH4.png",
+                annotation_row = modules.bin.ch.map %>% select(level2),
+                annotation_colors = list(level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+                                                    `Energy metabolism` = "#82e5ed",
+                                                    `Nucleotide and amino acid metabolism` = "#94b2a6")),
+                labels_row = paste(modules.bin.ch.map %>% pull(level3),
+                                   modules.bin.ch.map %>% pull(level4), sep = " | ") %>% as.character)
 devClose()
 
 plotHeatmapBin2(modules.bin.co.map, "CO2",
-                # filename = "02_KEGG/KEGG-heatmap-bin-CO2.png",
-                annotation_row = modules.bin.co.map %>% select(`Level 2`),
-                annotation_colors = list(`Level 2` = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
-                                                       `Energy metabolism` = "#82e5ed",
-                                                       `Nucleotide and amino acid metabolism` = "#94b2a6")),
-                labels_row = paste(modules.bin.co.map %>% pull(`Level 3`),
-                                   modules.bin.co.map %>% pull(`Level 4`), sep = " | ") %>% as.character)
+                filename = "02_KEGG/KEGG-heatmap-bin-CO2.png",
+                annotation_row = modules.bin.co.map %>% select(level2),
+                annotation_colors = list(level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+                                                    `Energy metabolism` = "#82e5ed",
+                                                    `Nucleotide and amino acid metabolism` = "#94b2a6")),
+                labels_row = paste(modules.bin.co.map %>% pull(level3),
+                                   modules.bin.co.map %>% pull(level4), sep = " | ") %>% as.character)
 devClose()

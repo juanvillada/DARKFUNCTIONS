@@ -86,12 +86,30 @@ data <- lapply(data, function(SAMPLE) {
     summariseKEGG
 })
 
-## Merge summaries and get moduleslevel4
-data <- data %>%
-  mergeSummaries %>%
-  getSummary("modules", "level4")
+## Merge summaries
+summary <- data %>%
+  mergeSummaries
 
 ## Write results
 save.image("keggR.RData")
-write_delim(data, "summaries_modules_level4.txt", delim = "\t")
+
+summary %>%
+  getSummary("modules", "level1") %>%
+  write_delim("summaries_modules_level1.txt", delim = "\t")
+
+summary %>%
+  getSummary("modules", "level2") %>%
+  write_delim("summaries_modules_level2.txt", delim = "\t")
+
+summary %>%
+  getSummary("modules", "level3") %>%
+  write_delim("summaries_modules_level3.txt", delim = "\t")
+
+summary %>%
+  getSummary("modules", "level4") %>%
+  write_delim("summaries_modules_level4.txt", delim = "\t")
+
+summary %>%
+  getSummary("modules", "level5") %>%
+  write_delim("summaries_modules_level5.txt", delim = "\t")
 ```

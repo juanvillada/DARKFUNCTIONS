@@ -275,6 +275,11 @@ cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
 
+anvi-export-gene-calls --contigs-db CONTIGS.db \
+                       --output-file gene_calls.txt \
+                       --gene-caller prodigal \
+                       --skip-sequence-reporting
+
 anvi-get-sequences-for-gene-calls --contigs-db CONTIGS.db \
                                   --output-file gene_calls.fa
 
@@ -345,6 +350,10 @@ write_delim(anvio, "gene_calls_KEGG_anvio.txt", delim = "\t", col_names = T)
 # Import KEGG annotation to ANVI'O
 anvi-import-functions --contigs-db CONTIGS.db \
                       --input-files gene_calls_KEGG_annot.txt
+
+anvi-export-functions --contigs-db CONTIGS.db \
+                      --output-file gene_calls_functions.txt
+
 ```
 
 ### Summarize refined MAGs
@@ -353,10 +362,6 @@ anvi-import-functions --contigs-db CONTIGS.db \
 cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
-
-anvi-export-gene-calls --contigs-db CONTIGS.db \
-                       --output-file gene_calls.txt \
-                       --gene-caller prodigal
 
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_SUMMARY \
