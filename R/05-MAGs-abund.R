@@ -6,7 +6,7 @@ setwd("~/Data/Helsinki/analyses/")
 
 ##### IMPORT AND PROCESS DATA #####
 
-load("05_MAGs/PLOTS/R.RData")
+load("05_MAGs/PLOTS/abund.RData")
 
 # Create list of samples
 SAMPLES <- read_lines("SAMPLES.txt")
@@ -29,17 +29,13 @@ coverage <- read_delim("05_MAGs/SUMMARY/bins_across_samples/mean_coverage.txt", 
   select(-bins) %>% 
   rename_all(funs(str_to_lower(.)))
 
-# coverage.RNA <- read_delim("05_MAGs/REFINED_MAGS_RNASEQ_SUMMARY/bins_across_samples/mean_coverage.txt", delim = "\t") %>% 
-#   arrange(bins) %>% 
-#   select(-bins) %>% 
-#   rename_all(funs(str_replace_all(., "_RNASEQ", "") %>% str_to_lower(.)))
-
 ## Taxonomy
 taxonomy <- readTax()
 
 ## Gene calls
 gene_calls <- read_delim("05_MAGs/gene_calls.txt", delim = "\t") %>% 
-  select(MAG = contig %>% str_extract("[bog|heath]+_MAG_[0-9]+"), gene_callers_id)
+  mutate(MAG = contig %>% str_extract("[bog|heath]+_MAG_[0-9]+")) %>% 
+  select(MAG, contig, gene_callers_id)
 
 ## KEGG BLAST results
 kegg <- readBlast("05_MAGs/gene_calls_KEGG.txt")
@@ -61,16 +57,16 @@ kegg <- lapply(MAGs, function(x) {
 }) %>% set_names(MAGs)
 
 ## Summarise modules
-kegg <- lapply(kegg, function (MAG) {
+summary <- lapply(kegg, function (MAG) {
   MAG %>%
     summariseKEGG
 })
 
 ## Merge summaries
-kegg <- kegg %>% 
+summary <- kegg %>% 
   mergeSummaries
 
-## Get summaries
+## Get summaries level4 and level5
 modules <- kegg %>% 
   getSummary("modules", "level4") %>% 
   mutate_at(MAGs, function (x) ifelse(x > 0, 1, 0))
@@ -114,7 +110,10 @@ coverage.sum.eco <- bind_cols(MAG = MAGs,
                                 pull(Mean))
 
 # Write mean coverage by ecosystem
-write_delim(coverage.sum.eco, "05_MAGs/PLOTS/mean_coverage_ecoystem.txt", delim = "\t")
+coverage.sum.eco %>% 
+  mutate(contig = MAG) %>% 
+  select(contig, MAG, Barren, Heathland, Wetland) %>% 
+  write_delim("05_MAGs/PLOTS/mean_coverage_ecoystem.txt", delim = "\t")
 
 
 ##### BOXPLOT RICHNESS #####
@@ -210,6 +209,55 @@ pdf("05_MAGs/PLOTS/carbon.pdf", width = 6, height = 80)
 plotHeatmapKEGG(carbon, c(1, 10))
 devClose()
 
+plotHeatmapKEGGAcido <- function (DATA, RATIO) {
+  TAXONOMY <- taxonomy %>%
+    filter(Phylum == "Acidobacteriota") %>% 
+    arrange(Class, Order, Family, Genus, Species)
+  
+  MAGs <- TAXONOMY %>%
+    pull(MAG)
+  
+  METADATA <- DATA %>%
+    select(starts_with("level"))
+  
+  DATA <- DATA %>%
+    select(all_of(MAGs))
+  
+  COVERAGE <- coverage.sum.eco %>%
+    gather(key = "Ecosystem", value = value, 2:ncol(coverage.sum.eco)) %>%
+    spread_(key = names(coverage.sum.eco)[1], value = "value") %>%
+    select(Ecosystem, all_of(MAGs))
+  
+  p1 <- pheatmap(DATA %>% t,
+                 color = c("white", "orange"), silent = T,
+                 cellheight = 10, cellwidth = 10, cluster_cols = T, cluster_rows = F, legend = F,
+                 labels_row = paste(TAXONOMY %>% pull(Class), TAXONOMY %>% pull(MAG), sep = " | ") %>% as.character,
+                 labels_col = METADATA %>% pull(level4) %>% as.character)
+  
+  p2 <- pheatmap(COVERAGE %>% select(-Ecosystem) %>% sqrt %>% t,
+                 color = colorRampPalette(colors = c("white", "yellow", "red"))(100), silent = T,
+                 cellheight = 10, cellwidth = 10, cluster_cols = F, cluster_rows = F, legend = F,
+                 labels_col = COVERAGE %>% pull(Ecosystem) %>% as.character, show_rownames = F)
+  
+  plot_grid(as.grob(p2), as.grob(p1), ncol = 2, align = "h", rel_widths = RATIO)
+}
+
+pdf("05_MAGs/PLOTS/methane_acido.pdf", width = 6, height = 25)
+plotHeatmapKEGGAcido(methane, c(1, 10))
+devClose()
+
+pdf("05_MAGs/PLOTS/nitrogen_acido.pdf", width = 6, height = 25)
+plotHeatmapKEGGAcido(nitrogen, c(1, 10))
+devClose()
+
+pdf("05_MAGs/PLOTS/carbohydrate_acido.pdf", width = 6, height = 25)
+plotHeatmapKEGGAcido(carbohydrate, c(1, 10))
+devClose()
+
+pdf("05_MAGs/PLOTS/carbon_acido.pdf", width = 6, height = 25)
+plotHeatmapKEGGAcido(carbon, c(1, 10))
+devClose()
+
 
 ##### INVESTIGATE MODULES #####
 
@@ -237,6 +285,18 @@ devClose()
 pdf("05_MAGs/PLOTS/M00529.pdf", width = 6, height = 25)
 plotHeatmapKEGG2(M00529, c(1, 10))
 devClose()
+
+extractGene <- function(MAG, KO) {
+  sequence <- kegg[[MAG]] %>% 
+    getKOtable %>% 
+    filter(KO %in% !!KO) %>% 
+    pull(sequence)
+  
+  gene_calls %>%
+    filter(gene_callers_id %in% sequence)
+}
+
+extractGene("bog_MAG_0057", "K16157")
 
 
 ##### CUSTOM MODULES #####

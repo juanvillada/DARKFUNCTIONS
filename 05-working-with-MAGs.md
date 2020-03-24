@@ -276,9 +276,7 @@ cd $WORKDIR/05_MAGs
 conda activate anvio-master
 
 anvi-export-gene-calls --contigs-db CONTIGS.db \
-                       --output-file gene_calls.txt \
-                       --gene-caller prodigal \
-                       --skip-sequence-reporting
+                       --output-file gene_calls.txt
 
 anvi-get-sequences-for-gene-calls --contigs-db CONTIGS.db \
                                   --output-file gene_calls.fa
@@ -308,7 +306,7 @@ conda activate anvio-master
 
 # Run DIAMOND
 diamond blastx --query gene_calls.fa \
-               --out gene_calls_KEGG.txt \
+               --out KEGG/diamond_out.txt \
                --db $KEGG/PROKARYOTES \
                --outfmt 6 \
                --evalue 0.00001 \
@@ -327,7 +325,7 @@ library("keggR")
 loadKEGG("/projappl/project_2000577/KEGG")
 
 ## Read BLAST results
-blast <- readBlast("gene_calls_KEGG.txt")
+blast <- readBlast("KEGG/diamond_out.txt")
 
 ## Assign KO
 KOtable <- blast %>%
@@ -341,19 +339,45 @@ anvio <- KOtable %>%
 KOtable %>%
   getKOtable %>%
   filter(! KO %in% NA) %>%
-  write_delim("gene_calls_KEGG_KOtable.txt", delim = "\t", col_names = T)
+  write_delim("KEGG/KOtable.txt", delim = "\t", col_names = T)
 
-write_delim(anvio, "gene_calls_KEGG_anvio.txt", delim = "\t", col_names = T)
+write_delim(anvio, "KEGG/KOtable_anvio.txt", delim = "\t", col_names = T)
 ```
 
 ```bash
 # Import KEGG annotation to ANVI'O
 anvi-import-functions --contigs-db CONTIGS.db \
-                      --input-files gene_calls_KEGG_annot.txt
+                      --input-files KEGG/KOtable_anvio.txt
+```
+
+### Annotate genes against CAZY with DBCAN2
+
+```bash
+cd $WORKDIR/05_MAGs
+
+# Run DBCAN2
+conda activate dbcan
+
+run_dbcan.py gene_calls.faa protein \
+             --dia_cpu 40 \
+             --hmm_cpu 40 \
+             --hotpep_cpu 40 \
+             --out_dir DBCAN \
+             --db_dir $WORKDIR/dbcan-db
+
+# Import CAZY annotation to ANVI'O
+conda activate anvio-master
+
+printf '%s\t%s\t%s\t%s\t%s\n'  gene_callers_id source accession function e_value > DBCAN/anvio.txt
+
+sed '1d' DBCAN/hmmer.out |
+awk -F '\t' -v OFS='\t' '{print $3, "CAZY", "NA", $1, $5}' | sed 's/.hmm//' >> DBCAN/anvio.txt
+
+anvi-import-functions --contigs-db CONTIGS.db \
+                      --input-files DBCAN/anvio.txt
 
 anvi-export-functions --contigs-db CONTIGS.db \
                       --output-file gene_calls_functions.txt
-
 ```
 
 ### Summarize refined MAGs

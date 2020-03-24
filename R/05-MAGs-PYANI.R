@@ -1,7 +1,9 @@
 library("tidyverse")
-# library("lazyeval")
 library("DARKFUNCTIONS.R")
 setwd("~/Data/Helsinki/analyses/")
+
+
+##### IMPORT AND PROCESS DATA #####
 
 # Define group
 GROUP <- "ACIDOBACTERIA" #OR
