@@ -10,7 +10,7 @@ plotOrdination <- function(DATA, METADATA, MAPPING) {
     COLORS <- c("#dfc3f8", "#beefc1", "#eca6c1", "#61b7d9", "#f9b99f")
   }
   if (MAPPING == "Ecosystem") {
-    COLORS <- c("#dfc3f8", "#eca6c1", "#f9b99f")
+    COLORS <- c("#dfc3f8", "#61b7d9", "#f9b99f")
   }
 
   plot(DATA, display = "sites", type = "n")

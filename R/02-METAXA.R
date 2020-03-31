@@ -127,6 +127,7 @@ plotBarplot(phylum.bar) +
                                "#7ff9e1", "#ffaba1", "#59f0fc", "#d1a377", "#3ab9dc", "#ffddae", "#46d0c3", "#ffbdce", "#74dcb7", "#e9ccff",
                                "#91ba76", "#c3a1bf", "#e2ffb9", "#97acd4", "#73bc87", "#f0e3ff", "#68bb9e", "#d89d9a", "#c1ffdd", "#bcaa77",
                                "#bae8ff", "#fff4c2", "#75b8ae", "#eeffe2", "#91b3a0", "#c5fff0", "#a7af8c", "#b4e1e2"))
+devClose()
 
 
 ##### BOXPLOT RICHNESS #####
@@ -136,7 +137,7 @@ library("ggplot2")
 # Remove unclassified
 genus.rich <- bind_cols(genus.hier, genus.rel) %>% 
   filterUnclassified("Genus") %>% 
-  select(SAMPLES)
+  select(all_of(SAMPLES))
 
 # Compute richness
 genus.rich <- genus.rich %>% 
@@ -145,6 +146,7 @@ genus.rich <- genus.rich %>%
 # Plot
 png("02_METAXA/METAXA-GENUS-richness.png", width = 1600, height = 1200, res = 150)
 plotBoxplot(genus.rich, Ecosystem)
+devClose()
 
 
 ##### HEATMAP #####
@@ -153,7 +155,7 @@ library("pheatmap")
 
 # Prepare data
 phylum.map <- bind_cols(phylum.hier, phylum.rel)
-genus.map  <- bind_cols(genus.hier , genus.rel )
+genus.map <- bind_cols(genus.hier, genus.rel )
 
 # Remove unclassified
 phylum.map <- phylum.map %>% 
@@ -162,42 +164,34 @@ phylum.map <- phylum.map %>%
 genus.map <- genus.map %>% 
   filterUnclassified("Genus") 
 
-# For the genus levelkeep only top 50 genera
+# For the genus level keep only top 50 genera
 genus.map <- genus.map %>% 
   arrange(desc(apply(genus.map %>% select(SAMPLES), 1, mean))) %>% 
   head(50)
 
-# Reorder taxa
+# Reorder taxa by taxonomy
 phylum.map <- phylum.map %>% 
   arrange(Domain)
 
 genus.map  <- genus.map %>% 
   arrange(Phylum, Genus)
 
-# Transform to data.frame
-phylum.map <- data.frame(phylum.map, row.names = rownames(phylum.map), check.names = F)
-genus.map  <- data.frame(genus.map , row.names = rownames(genus.map ), check.names = F)
-
 # Plot
 plotHeatmap(phylum.map,
-            # filename = "02_METAXA/METAXA-PHYLUM-heatmap.png",
+            filename = "02_METAXA/METAXA-PHYLUM-heatmap.png",
             gaps_row = table(phylum.map$Domain) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = phylum.map %>% select(Domain),
-            annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
-                                     Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     Domain = c(Archaea = "#8befff", Bacteria = "#acaf79")),
+            annotation_row = data.frame(phylum.map %>% select(Domain), row.names = rownames(phylum.map)),
+            annotation_colors = list(Domain = c(Archaea = "#8befff", Bacteria = "#acaf79")),
             labels_row = phylum.map %>% pull(Phylum) %>% as.character)
 devClose()
 
 plotHeatmap(genus.map,
-            # filename = "02_METAXA/METAXA-GENUS-heatmap.png",
+            filename = "02_METAXA/METAXA-GENUS-heatmap.png",
             gaps_row = table(genus.map$Phylum) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = genus.map %>% select(Phylum),
-            annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
-                                     Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     Phylum = c(Acidobacteria = "#b3ad91", Actinobacteria = "#cdb4fc",
+            annotation_row = data.frame(genus.map %>% select(Phylum), row.names = rownames(genus.map)),
+            annotation_colors = list(Phylum = c(Acidobacteria = "#b3ad91", Actinobacteria = "#cdb4fc",
                                                 Bacteroidetes = "#e6e294", Chloroflexi = "#49bbc0",
                                                 Euryarchaeota = "#ffddb6", Firmicutes = "#88f0cb",
                                                 Gemmatimonadetes = "#f0ffc6", Planctomycetes = "#b3f4ff",
@@ -238,17 +232,20 @@ genus.mds.org <- genus.ord %>%
 # Plot
 png("02_METAXA/METAXA-NMDS.png", width = 1600, height = 1600, res = 150)
 plotOrdination(genus.mds, metadata, "Ecosystem")
+devClose()
 
 png("02_METAXA/METAXA-NMDS-min.png", width = 1600, height = 1600, res = 150)
 plotOrdination(genus.mds.min, metadata %>% filter(Layer == "mineral"), "Ecosystem")
+devClose()
 
 png("02_METAXA/METAXA-NMDS-org.png", width = 1600, height = 1600, res = 150)
 plotOrdination(genus.mds.org, metadata %>% filter(Layer == "organic"), "Ecosystem")
 metadata %>% 
   filter(Layer == "organic") %>% 
-  select(FLUX.VARS) %>% 
+  select(all_of(FLUX.VARS)) %>% 
   envfit(genus.mds.org, .) %>% 
   plot(col = "#b3a5cb")
+devClose()
 
 
 ##### NEGATIVE BINOMIAL ANALYSES (VEGETATION) #####

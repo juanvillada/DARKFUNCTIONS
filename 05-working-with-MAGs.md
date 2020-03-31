@@ -306,7 +306,7 @@ conda activate anvio-master
 
 # Run DIAMOND
 diamond blastx --query gene_calls.fa \
-               --out KEGG/diamond_out.txt \
+               --out KEGG_diamond.txt \
                --db $KEGG/PROKARYOTES \
                --outfmt 6 \
                --evalue 0.00001 \
@@ -325,7 +325,7 @@ library("keggR")
 loadKEGG("/projappl/project_2000577/KEGG")
 
 ## Read BLAST results
-blast <- readBlast("KEGG/diamond_out.txt")
+blast <- readBlast("KEGG_diamond.txt")
 
 ## Assign KO
 KOtable <- blast %>%
@@ -333,21 +333,76 @@ KOtable <- blast %>%
 
 ## Create file for anvio
 anvio <- KOtable %>%
-  KOtable2ANVIO
+  KOtable2ANVIO("KEGG")
 
 ## Write results
-KOtable %>%
-  getKOtable %>%
-  filter(! KO %in% NA) %>%
-  write_delim("KEGG/KOtable.txt", delim = "\t", col_names = T)
-
-write_delim(anvio, "KEGG/KOtable_anvio.txt", delim = "\t", col_names = T)
+write_delim(anvio, "KEGG_anvio.txt", delim = "\t", col_names = T)
 ```
 
 ```bash
 # Import KEGG annotation to ANVI'O
 anvi-import-functions --contigs-db CONTIGS.db \
-                      --input-files KEGG/KOtable_anvio.txt
+                      --input-files KEGG_anvio.txt
+```
+
+### Annotate genes against KEGG with HMMER
+
+```bash
+# wget ftp://ftp.genome.jp/pub/db/kofam/*
+cd $WORKDIR/05_MAGs
+
+conda activate anvio-master
+
+# Run hmmer
+while read knum threshold score_type profile_type F_measure nseq nseq_used alen mlen eff_nseq re_pos definition; do
+  if [[ $score_type == "full" ]]; then
+    hmmsearch -T $threshold --cpu 20 --tblout KOFAM/hmm_out/$knum.hmm.txt $WORKDIR/KOFAM_DB/profiles/$knum.hmm gene_calls.faa
+  else
+    hmmsearch --domT $threshold --cpu 20 --domtblout KOFAM/hmm_out/$knum.hmm.txt $WORKDIR/KOFAM_DB/profiles/$knum.hmm gene_calls.faa
+  fi
+done < <(sed '1d' $WORKDIR/KOFAM_DB/ko_list)
+
+# Concatenate results
+while read knum threshold score_type profile_type F_measure nseq nseq_used alen mlen eff_nseq re_pos definition; do
+  if [[ $score_type == "full" ]]; then
+    sed '/^#/d' KOFAM/hmm_out/$knum.hmm.txt |
+    tr -s ' ' '\t' |
+    cut -f 1,3,5,6
+  else
+    sed '/^#/d' KOFAM/hmm_out/$knum.hmm.txt |
+    tr -s ' ' '\t' |
+    cut -f 1,4,7,8
+  fi
+done < <(sed '1d' $WORKDIR/KOFAM_DB/ko_list) > KOFAM/KOFAM_table.txt
+```
+
+```bash
+# In R, parse the hmmer results and get KO numbers
+library("tidyverse")
+library("keggR")
+
+## Load KEGG auxiliary files
+loadKEGG("/projappl/project_2000577/KEGG")
+
+## Read BLAST results
+blast <- readHMM("KOFAM/KOFAM_table.txt")
+
+## Assign KO
+KOtable <- blast %>%
+  assignKEGG2
+
+## Create file for anvio
+anvio <- KOtable %>%
+  KOtable2ANVIO("KOFAM")
+
+## Write results
+write_delim(anvio, "KOFAM/KOFAM_anvio.txt", delim = "\t", col_names = T)
+```
+
+```bash
+# Import KEGG annotation to ANVI'O
+anvi-import-functions --contigs-db CONTIGS.db \
+                      --input-files KOFAM/KOFAM_anvio.txt
 ```
 
 ### Annotate genes against CAZY with DBCAN2
@@ -363,7 +418,7 @@ run_dbcan.py gene_calls.faa protein \
              --hmm_cpu 40 \
              --hotpep_cpu 40 \
              --out_dir DBCAN \
-             --db_dir $WORKDIR/dbcan-db
+             --db_dir /projappl/project_2000577/dbcan-db
 
 # Import CAZY annotation to ANVI'O
 conda activate anvio-master
@@ -375,9 +430,6 @@ awk -F '\t' -v OFS='\t' '{print $3, "CAZY", "NA", $1, $5}' | sed 's/.hmm//' >> D
 
 anvi-import-functions --contigs-db CONTIGS.db \
                       --input-files DBCAN/anvio.txt
-
-anvi-export-functions --contigs-db CONTIGS.db \
-                      --output-file gene_calls_functions.txt
 ```
 
 ### Summarize refined MAGs
@@ -386,6 +438,9 @@ anvi-export-functions --contigs-db CONTIGS.db \
 cd $WORKDIR/05_MAGs
 
 conda activate anvio-master
+
+anvi-export-functions --contigs-db CONTIGS.db \
+                      --output-file gene_calls_functions.txt
 
 anvi-summarize --contigs-db CONTIGS.db \
                --output-dir REFINED_MAGS_SUMMARY \

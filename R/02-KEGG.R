@@ -76,25 +76,20 @@ modules.map <- bind_cols(modules.hier, modules.rel)
 
 # Keep only pathways with relative abundance > 0.1%
 modules.map <- modules.map %>% 
-  filter(level4 %in% (modules.sum[["All"]] %>% filter(Mean > 0.001) %>% pull(level4) %>% as.vector))
-
-# Reorder taxa
-modules.map <- modules.map %>% 
   arrange(match(level4, modules.sum[["All"]] %>% pull(level4))) %>% 
-  arrange(level2, level3)
+  filter(level4 %in% (modules.sum[["All"]] %>% filter(Mean > 0.001) %>% pull(level4)))
 
-# Transform to data.frame
-modules.map <- data.frame(modules.map, row.names = rownames(modules.map), check.names = F)
+# Reorder modules by category
+modules.map <- modules.map %>% 
+  arrange(level2, level3)
 
 # Plot
 plotHeatmap(modules.map,
             filename = "02_KEGG/KEGG-heatmap.png",
             gaps_row = table(modules.map$level2) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = modules.map %>% select(level2),
-            annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
-                                     Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+            annotation_row = data.frame(modules.map %>% select(level2), row.names = rownames(modules.map)),
+            annotation_colors = list(level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
                                                 `Cellular processes` = "#feb8a6",
                                                 `Energy metabolism` = "#82e5ed",
                                                 `Environmental information processing` = "#e4b4e2",
@@ -110,16 +105,12 @@ devClose()
 modules.map.small <- modules.map %>% 
   filter(level2 %in% c("Carbohydrate and lipid metabolism", "Energy metabolism", "Nucleotide and amino acid metabolism"))
 
-modules.map.small <- data.frame(modules.map.small, row.names = rownames(modules.map.small), check.names = F)
-
 plotHeatmap(modules.map.small,
             filename = "02_KEGG/KEGG-heatmap-small.png",
             gaps_row = table(modules.map.small$level2) %>% as.vector %>% cumsum,
             gaps_col = table(metadata$Ecosystem) %>% as.vector %>% cumsum,
-            annotation_row = modules.map.small %>% select(level2),
-            annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
-                                     Layer = c(mineral = "#b7d8ff", organic = "#98c699"),
-                                     level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
+            annotation_row = data.frame(modules.map.small %>% select(level2), row.names = rownames(modules.map.small)),
+            annotation_colors = list(level2 = c(`Carbohydrate and lipid metabolism` = "#7ec5ef",
                                                 `Energy metabolism` = "#82e5ed",
                                                 `Nucleotide and amino acid metabolism` = "#94b2a6")),
             labels_row = paste(modules.map.small %>% pull(level3),

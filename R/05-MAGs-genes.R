@@ -94,3 +94,11 @@ f2 <- function(DATA, ...) {
 
 f2(top100_genes, filename = "05_MAGs/PLOTS/GENE-COVERAGE-TOP100.png")
 devClose()
+
+nif <- gene_calls_annot %>% 
+  filter(source == "KEGG") %>% 
+  filter(str_detect(`function`, "nif")) %>% 
+  pull(gene_callers_id)
+
+nif <- bind_cols(gene_calls, coverage) %>% 
+  filter(gene_callers_id %in% nif)
