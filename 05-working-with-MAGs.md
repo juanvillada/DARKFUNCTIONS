@@ -325,7 +325,7 @@ library("keggR")
 loadKEGG("/projappl/project_2000577/KEGG")
 
 ## Read BLAST results
-blast <- readBlast("KEGG_diamond.txt")
+blast <- readBlast("KEGG_diamond.txt", e_value = T)
 
 ## Assign KO
 KOtable <- blast %>%
@@ -336,7 +336,7 @@ anvio <- KOtable %>%
   KOtable2ANVIO("KEGG")
 
 ## Write results
-write_delim(anvio, "KEGG_anvio.txt", delim = "\t", col_names = T)
+write_delim(anvio, "KEGG_anvio.txt", delim = "\t")
 ```
 
 ```bash
@@ -385,7 +385,7 @@ library("keggR")
 loadKEGG("/projappl/project_2000577/KEGG")
 
 ## Read BLAST results
-blast <- readHMM("KOFAM/KOFAM_table.txt")
+blast <- readHMM("KOFAM/KOFAM_table.txt", e_value = T)
 
 ## Assign KO
 KOtable <- blast %>%
@@ -396,7 +396,7 @@ anvio <- KOtable %>%
   KOtable2ANVIO("KOFAM")
 
 ## Write results
-write_delim(anvio, "KOFAM/KOFAM_anvio.txt", delim = "\t", col_names = T)
+write_delim(anvio, "KOFAM/KOFAM_anvio.txt", delim = "\t")
 ```
 
 ```bash
