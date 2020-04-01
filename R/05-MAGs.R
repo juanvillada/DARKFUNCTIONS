@@ -6,10 +6,13 @@ setwd("~/Data/Helsinki/analyses/")
 
 ##### IMPORT AND PROCESS DATA #####
 
-load("05_MAGs/PLOTS/abund.RData")
+load("05_MAGs/PLOTS/R.RData")
 
 # Create list of samples
 SAMPLES <- read_lines("SAMPLES.txt")
+
+SAMPLES.RNA <- read_lines("SAMPLES_RNAseq.txt") %>% 
+  gsub("_RNAseq", "", .)
 
 # Create list of MAGs
 MAGs <- read_lines("05_MAGs/non_redundant_MAGs.txt")
@@ -18,16 +21,27 @@ MAGs <- read_lines("05_MAGs/non_redundant_MAGs.txt")
 metadata <- readMetadata("00_METADATA/metadata.tsv") %>%
   filter(Sample %in% SAMPLES)
 
+metadata_RNA <- readMetadata("00_METADATA/metadata.tsv") %>% 
+  filter(Sample %in% SAMPLES.RNA)
+
 # Read KEGG metadata
 loadKEGG("~/KEGG")
 
 # Read data
 
-## Abundance
+## MAG abundance
 abundance <- read_delim("05_MAGs/SUMMARY/bins_across_samples/abundance.txt", delim = "\t") %>%
   arrange(bins) %>%
   select(-bins) %>%
   rename_all(funs(str_to_lower(.)))
+
+## Gene coverage in RNAseq
+coverage <- lapply(MAGs, function(MAG) {
+  read_delim(paste("05_MAGs/SUMMARY_RNASEQ/bin_by_bin/", MAG, "/" , MAG, "-gene_coverages.txt", sep = ""), delim = "\t")
+}) %>% 
+  bind_rows %>% 
+  rename_all(funs(str_replace_all(., "_RNASEQ", "") %>% str_to_lower(.))) %>% 
+  arrange(gene_callers_id)
 
 ## Taxonomy
 taxonomy <- readTax()
@@ -39,16 +53,24 @@ gene_calls <- read_delim("05_MAGs/gene_calls.txt", delim = "\t") %>%
 ## Gene annotation
 gene_annot <- read_delim("05_MAGs/gene_calls_functions.txt", delim = "\t")
 
-## KEGG BLAST results
-kegg <- readBlast("05_MAGs/KEGG_diamond.txt")
+## KEGG annotation
+kegg <- list(BLAST = readBlast("05_MAGs/KEGG_diamond.txt", e_value = T),
+             HMM = readHMM("05_MAGs/KOFAM/KOFAM_table.txt", e_value = T))
 
 # Reorder samples
 SAMPLES <- metadata %>%
   pull(Sample) %>%
   as.vector
 
+SAMPLES.RNA <- metadata_RNA %>% 
+  pull(Sample) %>% 
+  as.vector
+
 abundance <- abundance %>%
   select(all_of(SAMPLES))
+
+coverage <- coverage %>% 
+  select(all_of(SAMPLES.RNA))
 
 # Transform to relative abundance
 abundance.rel <- abundance %>%
@@ -67,20 +89,17 @@ abundance.sum <- list(All = abundance.rel %>%
                         select(metadata %>% filter(Ecosystem == "wetland") %>% pull(Sample)) %>%
                         summariseMeans(taxonomy))
 
-# Compute mean coverage by ecosystem
-# abundance.eco <- bind_cols(MAG = MAGs,
-#                            Barren = abundance.sum[["Barren"]] %>%
-#                              arrange(MAG) %>%
-#                              pull(Mean),
-#                            Heathland = abundance.sum[["Heathland"]] %>%
-#                              arrange(MAG) %>%
-#                              pull(Mean),
-#                            Wetland = abundance.sum[["Wetland"]] %>%
-#                              arrange(MAG) %>%
-#                              pull(Mean))
+coverage.sum <- list(All = coverage %>% 
+                       summariseMeans(gene_calls),
+                     Barren = coverage %>% 
+                       select(metadata_RNA %>% filter(Ecosystem == "barren") %>% pull(Sample)) %>% 
+                       summariseMeans(gene_calls),
+                     Heathland = coverage %>% 
+                       select(metadata_RNA %>% filter(Ecosystem == "heathland") %>% pull(Sample)) %>% 
+                       summariseMeans(gene_calls))
 
 
-##### HEATMAP #####
+##### HEATMAP MAG ABUNDANCE #####
 
 library("pheatmap")
 
@@ -168,39 +187,56 @@ library("ggplotify")
 library("pheatmap")
 
 # Assign KOs and modules to KEGG hits
-kegg <- kegg %>%
+kegg[["BLAST"]] <- kegg[["BLAST"]] %>% 
+  assignKEGG
+
+kegg[["HMM"]] <- kegg[["HMM"]] %>% 
   assignKEGG
 
 # Split KO table by MAG
-kegg <- lapply(MAGs, function(x) {
-  GENE_CALLS <- gene_calls %>%
-    filter(MAG == x) %>%
-    pull(gene_callers_id)
-
-  kegg %>%
-    filterKOtable(GENE_CALLS)
-}) %>% set_names(MAGs)
+kegg <- lapply(kegg, function (x) {
+  lapply(MAGs, function(y) {
+    GENE_CALLS <- gene_calls %>%
+      filter(MAG == y) %>%
+      pull(gene_callers_id)
+    
+    x %>%
+      filterKOtable(GENE_CALLS)
+  }) %>% set_names(MAGs)
+})
 
 # Summarise modules
-summary <- lapply(kegg, function (MAG) {
-  MAG %>%
-    summariseKEGG
+summary <- lapply(kegg, function(x) {
+  lapply(x, function (MAG) {
+    MAG %>%
+      summariseKEGG
+  })
 })
 
 # Merge summaries
-summary <- summary %>%
-  mergeSummaries
+summary <- lapply(summary, function(x) {
+  x %>% 
+    mergeSummaries
+})
 
 # Get summaries level5
-genes <- summary %>%
-  getSummary("modules", "level5") %>%
+genes <- lapply(summary, function(x) {
+  x %>% 
+    getSummary("modules", "level5") 
+})
+
+genes <- genes %>% 
+  bind_rows %>% 
+  group_by(level1, level2, level3, level4, KO, gene) %>% 
+  summarise_all(funs(sum(., na.rm = T))) %>% 
+  ungroup %>%
   mutate_at(MAGs, function (x) ifelse(x > 0, 1, 0))
 
 # M00567: Methanogenesis, CO2 => methane
 M00567 <- selectLevel4("M00567")
 
 pdf("05_MAGs/PLOTS/M00567-methanogenesis.pdf", width = 11.69, height = 8.27)
-plotModules(M00567, SCALING = 4)
+plotModules(M00567, SCALING = 2.8)
 devClose()
 
 # M00174: Methane oxidation, methanotroph, methane => formaldehyde
@@ -246,8 +282,11 @@ M00175_contigs <- lapply(M00175_contigs, function(x) {
 viewList(M00175_contigs)
 
 ## Create GFF file
-formatGFF(M00175_contigs) %>%
-  write_delim("05_MAGs/nifH.gff", delim = "\t", col_names = F)
+formatGFF(M00175_contigs, "KEGG") %>%
+  write_delim("05_MAGs/TEST_NIF/nifH-KEGG.gff", delim = "\t", col_names = F)
+
+formatGFF(M00175_contigs, "KOFAM") %>%
+  write_delim("05_MAGs/TEST_NIF/nifH-KOFAM.gff", delim = "\t", col_names = F)
 
 ## M00528: Nitrification, ammonia => nitrite
 M00528 <- selectLevel4("M00528")
@@ -260,9 +299,55 @@ devClose()
 M00529 <- selectLevel4("M00529")
 
 pdf("05_MAGs/PLOTS/M00529-denitrification.pdf", width = 11.69, height = 8.27)
-plotModules(M00529, SCALING = 5)
+plotModules(M00529, SCALING = 4)
 devClose()
 
+
+##### COVERAGE RNA ######
+
+library("pheatmap")
+
+# Select top 100 most transcribed genes
+coverage.top100 <- coverage.sum[["All"]] %>% 
+  filter(source != "Ribosomal_RNAs") %>% 
+  slice(1:100) %>% 
+  pull(gene_callers_id)
+
+coverage.top100 <- bind_cols(gene_calls, coverage) %>%
+  filter(gene_callers_id %in% coverage.top100) %>% 
+  select(gene_callers_id, MAG, all_of(SAMPLES.RNA)) %>% 
+  left_join(gene_annot %>% filter(source == "COG_CATEGORY")) %>% 
+  arrange(MAG)
+
+# Heatmap
+plotHeatmapCoverage <- function(input, ...) {
+  ORDER <- metadata_RNA %>% 
+    arrange(Ecosystem, Layer) %>% 
+    pull(Sample)
+  
+  ANNOTATION_COL <- data.frame(Ecosystem = metadata_RNA %>% select(Ecosystem), row.names = metadata_RNA %>% pull(Sample))
+  
+  pheatmap(input %>% select(all_of(ORDER)) %>% sqrt, 
+           color = colorRampPalette(colors = c("#DEEBF7", "#4292C6", "#08306B"))(100), 
+           border_color = NA, cellheight = 10, cellwidth = 10, cluster_cols = F, cluster_rows = F, 
+           annotation_col = ANNOTATION_COL,
+           # annotation_row = DATA %>% select(MAG),
+           annotation_colors = list(Ecosystem = c(barren = "#dfc3f8", heathland = "#eca6c1", wetland = "#f9b99f"),
+                                    Layer = c(mineral = "#b7d8ff", organic = "#98c699")),
+           labels_row = paste(input %>% pull(gene_callers_id), input %>% pull(MAG), input %>% pull(`function`), sep = " | ") %>% as.character, ...)
+}
+
+plotHeatmapCoverage(coverage.top100,
+                    filename = "05_MAGs/PLOTS/GENE-COVERAGE-TOP100.png")
+devClose()
+
+# nif <- gene_calls_annot %>% 
+#   filter(source == "KEGG") %>% 
+#   filter(str_detect(`function`, "nif")) %>% 
+#   pull(gene_callers_id)
+# 
+# nif <- bind_cols(gene_calls, coverage) %>% 
+#   filter(gene_callers_id %in% nif)
 
 
 ##### CUSTOM MODULES #####

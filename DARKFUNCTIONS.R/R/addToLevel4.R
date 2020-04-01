@@ -3,26 +3,34 @@
 addToLevel4 <- function(MODULE, KO_SELECT) {
   MAGs <- MODULE[["MAGs"]]
 
-  GENES <- lapply(MAGs, function(x) {
-    df <- kegg[[x]] %>%
-      getKOtable %>%
-      select(KO) %>%
-      filter(KO %in% KO_SELECT) %>%
-      unique %>%
-      inner_join(.KO00000, by = "KO") %>%
-      mutate(MAG = x) %>%
-      mutate(count = 1) %>%
-      arrange(KO)
+  GENES <- lapply(kegg, function(x) {
+    lapply(MAGs, function(y) {
+      df <- x[[y]] %>%
+        getKOtable %>%
+        select(KO) %>%
+        filter(KO %in% KO_SELECT) %>%
+        unique %>%
+        inner_join(.KO00000, by = "KO") %>%
+        mutate(MAG = y) %>%
+        mutate(count = 1) %>%
+        arrange(KO)
 
-    if (nrow(df) == 0) {
-      df <- tibble(KO = NA, gene = NA, MAG = x, count = 0)
-    }
-    return(df)
+      if (nrow(df) == 0) {
+        df <- tibble(KO = NA, gene = NA, MAG = y, count = 0)
+      }
+
+      return(df)
+    }) %>%
+      bind_rows %>%
+      spread(MAG, count, fill = 0) %>%
+      filter(!KO %in% NA) %>%
+      select(KO, gene, all_of(MAGs))
   }) %>%
     bind_rows %>%
-    spread(MAG, count, fill = 0) %>%
-    filter(!KO %in% NA) %>%
-    select(KO, gene, all_of(MAGs))
+    group_by(KO, gene) %>%
+    summarise_all(funs(sum(., na.rm = T))) %>%
+    ungroup %>%
+    mutate_at(MAGs, function (x) ifelse(x > 0, 1, 0))
 
   LEVEL1 <- MODULE[["GENES_HIER"]] %>% pull(level1) %>% unique
   LEVEL2 <- MODULE[["GENES_HIER"]] %>% pull(level2) %>% unique

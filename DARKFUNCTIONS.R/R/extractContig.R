@@ -10,6 +10,7 @@ extractContig <- function(CONTIG) {
 
   annotation <- gene_annot %>%
     filter(gene_callers_id %in% sequences) %>%
+    filter(source != "COG_CATEGORY") %>%
     arrange(gene_callers_id)
 
   results <- list(gene_calls = gene_calls,
